@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useEmailActivity() {
+export function useEmailActivity(addLog) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -13,6 +13,14 @@ export function useEmailActivity() {
         .update(updates)
         .eq('prospect_id', prospectId)
       if (error) throw error
+
+      if (updates.stage && addLog) {
+        await addLog('email', `Stage changed to "${updates.stage}"`)
+      }
+      if (updates.replied !== undefined && addLog) {
+        await addLog('email', updates.replied ? 'Marked as replied' : 'Reply mark removed')
+      }
+
       return { error: null }
     } catch (err) {
       setError(err.message)
@@ -25,7 +33,6 @@ export function useEmailActivity() {
   async function logEmailSent(prospectId, inboxUsed, sequenceStage) {
     setLoading(true)
     try {
-      // Increment emails_sent and update stage info
       const { data: current } = await supabase
         .from('email_pipeline')
         .select('emails_sent')
@@ -43,6 +50,11 @@ export function useEmailActivity() {
         .eq('prospect_id', prospectId)
 
       if (error) throw error
+
+      if (addLog) {
+        await addLog('email', `Email sent via ${inboxUsed} — ${sequenceStage}`)
+      }
+
       return { error: null }
     } catch (err) {
       setError(err.message)

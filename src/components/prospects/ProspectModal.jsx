@@ -6,7 +6,8 @@ import Input from '../ui/Input'
 import { formatDate } from '../../utils/formatDate'
 import { useEmailActivity } from '../../hooks/useEmailActivity'
 import { useLinkedinActivity } from '../../hooks/useLinkedinActivity'
-import { useProspects } from '../../hooks/useProspects'
+import { useActivityLog } from '../../hooks/useActivityLog'
+
 import {
   EMAIL_PIPELINE_STAGES,
   LINKEDIN_CONNECTION_STATUSES,
@@ -14,10 +15,10 @@ import {
   PROSPECT_TAGS
 } from '../../utils/constants'
 
-export default function ProspectModal({ prospect, onClose, onUpdated }) {
-  const { deleteProspect, updateProspect } = useProspects()
-  const { updateEmailPipeline } = useEmailActivity()
-  const { updateLinkedinPipeline } = useLinkedinActivity()
+export default function ProspectModal({ prospect, onClose, onUpdated, updateProspect, deleteProspect  }) {
+const { logs, loading: logsLoading, addLog } = useActivityLog(prospect.id)
+const { updateEmailPipeline } = useEmailActivity(addLog)
+const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -34,6 +35,10 @@ export default function ProspectModal({ prospect, onClose, onUpdated }) {
     notes: prospect.notes ?? '',
   })
   const [tags, setTags] = useState(prospect.prospect_tags?.map(t => t.tag) ?? [])
+  const [activeTab, setActiveTab] = useState('email')
+  const [newNote, setNewNote] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+
 
   if (!prospect) return null
 
@@ -71,22 +76,30 @@ export default function ProspectModal({ prospect, onClose, onUpdated }) {
   async function handleEmailStageChange(stage) {
     setSaving(true)
     await updateEmailPipeline(prospect.id, { stage })
-    onUpdated()
+    await onUpdated()
     setSaving(false)
   }
 
   async function handleLIConnectionChange(status) {
     setSaving(true)
     await updateLinkedinPipeline(prospect.id, { connection_status: status })
-    onUpdated()
+    await onUpdated()
     setSaving(false)
   }
 
   async function handleLIDMChange(status) {
     setSaving(true)
     await updateLinkedinPipeline(prospect.id, { dm_status: status })
-    onUpdated()
+    await onUpdated()
     setSaving(false)
+  }
+
+  async function handleAddNote() {
+  if (!newNote.trim()) return
+  setSavingNote(true)
+  await addLog(activeTab, 'Note added', newNote.trim())
+  setNewNote('')
+  setSavingNote(false)
   }
 
   async function handleDelete() {
@@ -202,24 +215,24 @@ export default function ProspectModal({ prospect, onClose, onUpdated }) {
             <div>
               <p className="text-orange-400 text-xs uppercase tracking-widest mb-3">Links</p>
               <div className="flex flex-col gap-2">
-                {links.map(({ label, value, href }) => (
-                  <div key={label} className="flex items-center justify-between">
-                    <span className="text-zinc-500 text-xs w-20">{label}</span>
-                    {value ? (
-                      <aside
-                        href={href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-orange-400 text-xs hover:text-orange-300 transition truncate max-w-[280px]"
-                      >
-                        {value}
-                      </aside>
-                    ) : (
-                      <span className="text-zinc-600 text-xs">—</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+  {links.map(({ label, value, href }) => (
+    <div key={label} className="flex flex-col gap-1 bg-[#141414] border border-[#222] rounded-xl px-4 py-3">
+      <span className="text-zinc-500 text-[10px] uppercase tracking-widest">{label}</span>
+      {value ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="text-orange-400 text-sm hover:text-orange-300 transition break-all leading-snug"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="text-zinc-600 text-sm">—</span>
+      )}
+    </div>
+  ))}
+</div>
             </div>
 
             {/* Email Pipeline */}
@@ -250,6 +263,24 @@ export default function ProspectModal({ prospect, onClose, onUpdated }) {
                     <p className="text-white">{formatDate(email?.last_email_date)}</p>
                   </div>
                 </div>
+                <div className="flex items-center justify-between bg-[#1a1a1a] rounded-lg px-3 py-2.5 border border-[#2a2a2a]">
+  <span className="text-zinc-500 text-xs">Replied</span>
+  <button
+    onClick={async () => {
+      setSaving(true)
+      await updateEmailPipeline(prospect.id, { replied: !email?.replied })
+      await onUpdated()
+      setSaving(false)
+    }}
+    className={`relative w-9 h-5 rounded-full transition-colors ${
+      email?.replied ? 'bg-orange-500' : 'bg-[#2a2a2a]'
+    }`}
+  >
+    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+      email?.replied ? 'translate-x-4' : 'translate-x-0'
+    }`} />
+  </button>
+</div>
               </div>
             </div>
 
@@ -317,7 +348,83 @@ export default function ProspectModal({ prospect, onClose, onUpdated }) {
                 <p className="text-zinc-300 text-sm leading-relaxed">{prospect.notes}</p>
               </div>
             )}
+            {/* Activity Log */}
+<div>
+  <p className="text-orange-400 text-xs uppercase tracking-widest mb-3">Activity Log</p>
 
+  {/* Tabs */}
+  <div className="flex items-center bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-1 gap-1 mb-4">
+    <button
+      onClick={() => setActiveTab('email')}
+      className={`flex-1 py-1.5 rounded-md text-xs font-medium transition ${
+        activeTab === 'email'
+          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+          : 'text-zinc-500 hover:text-white'
+      }`}
+    >
+      ✉️ Email
+    </button>
+    <button
+      onClick={() => setActiveTab('linkedin')}
+      className={`flex-1 py-1.5 rounded-md text-xs font-medium transition ${
+        activeTab === 'linkedin'
+          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+          : 'text-zinc-500 hover:text-white'
+      }`}
+    >
+      🔗 LinkedIn
+    </button>
+  </div>
+
+  {/* Note input */}
+  <div className="flex gap-2 mb-4">
+    <input
+      type="text"
+      value={newNote}
+      onChange={e => setNewNote(e.target.value)}
+      onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+      placeholder={`Add a ${activeTab} note...`}
+      className="flex-1 bg-[#1a1a1a] text-white text-xs rounded-lg px-3 py-2 border border-[#2a2a2a] focus:outline-none focus:border-orange-500/50 placeholder-zinc-600 transition"
+    />
+    <button
+      onClick={handleAddNote}
+      disabled={savingNote || !newNote.trim()}
+      className="px-3 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg text-xs font-medium hover:bg-orange-500/30 transition disabled:opacity-40"
+    >
+      {savingNote ? '...' : 'Add'}
+    </button>
+  </div>
+
+  {/* Log entries */}
+  {logsLoading ? (
+    <div className="flex justify-center py-6">
+      <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  ) : (
+    <div className="flex flex-col gap-2">
+      {logs.filter(l => l.type === activeTab).length === 0 ? (
+        <p className="text-zinc-600 text-xs text-center py-4">No {activeTab} activity yet.</p>
+      ) : (
+        logs
+          .filter(l => l.type === activeTab)
+          .map(log => (
+            <div key={log.id} className="bg-[#1a1a1a] rounded-lg px-3 py-2.5 border border-[#2a2a2a]">
+              <p className="text-zinc-300 text-xs">{log.action}</p>
+              {log.note && (
+                <p className="text-zinc-500 text-xs mt-1 italic">"{log.note}"</p>
+              )}
+              <p className="text-zinc-600 text-xs mt-1.5">
+                {new Date(log.created_at).toLocaleDateString('en-GB', {
+                  day: 'numeric', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit'
+                })}
+              </p>
+            </div>
+          ))
+      )}
+    </div>
+  )}
+</div>
             {/* Meta */}
             <div className="text-xs text-zinc-600 border-t border-[#1f1f1f] pt-4">
               Added {formatDate(prospect.created_at)} · Updated {formatDate(prospect.updated_at)}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useLinkedinActivity() {
+export function useLinkedinActivity(addLog) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -16,6 +16,14 @@ export function useLinkedinActivity() {
         })
         .eq('prospect_id', prospectId)
       if (error) throw error
+
+      if (updates.connection_status && addLog) {
+        await addLog('linkedin', `Connection status changed to "${updates.connection_status}"`)
+      }
+      if (updates.dm_status && addLog) {
+        await addLog('linkedin', `DM status changed to "${updates.dm_status}"`)
+      }
+
       return { error: null }
     } catch (err) {
       setError(err.message)
@@ -50,7 +58,7 @@ export function useLinkedinActivity() {
   async function markResponded(prospectId, dmStatus) {
     return updateLinkedinPipeline(prospectId, {
       responded: true,
-      dm_status: dmStatus // e.g. 'Replied - Interested'
+      dm_status: dmStatus
     })
   }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import Topbar from '../components/layout/Topbar'
 import ProspectTable from '../components/prospects/ProspectTable'
@@ -18,10 +18,19 @@ export default function SalesDashboard() {
   const [liFilter, setLiFilter] = useState('')
   const [selectedProspect, setSelectedProspect] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const { prospects, loading, addProspect, refetch, generateSerial } = useProspects(search)
+  const { prospects, loading, filterProspects, addProspect, refetch, refetchOne ,generateSerial, updateProspect, deleteProspect } = useProspects()
+  const [pipelineMode, setPipelineMode] = useState('email') // 'email' | 'linkedin'
+
+  useEffect(() => {
+  if (selectedProspect) {
+    const updated = prospects.find(p => p.id === selectedProspect.id)
+    if (updated) setSelectedProspect(updated)
+      }
+      }, [prospects])
 
   // Filter prospects client-side by pipeline stage
-  const filtered = prospects.filter(p => {
+  const searched = filterProspects(search)
+  const filtered = searched.filter(p => {
     const emailStage = p.email_pipeline?.[0]?.stage ?? ''
     const liDM = p.linkedin_pipeline?.[0]?.dm_status ?? ''
     return (
@@ -29,6 +38,7 @@ export default function SalesDashboard() {
       (!liFilter || liDM === liFilter)
     )
   })
+
 
   // Quick stats
   const total = prospects.length
@@ -65,33 +75,63 @@ export default function SalesDashboard() {
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-[#1f1f1f]">
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, email, company, LinkedIn URL..."
-              className="w-80"
-            />
-            <Dropdown
-              value={emailFilter}
-              onChange={setEmailFilter}
-              options={[{ value: '', label: 'All Email Stages' }, ...EMAIL_PIPELINE_STAGES.map(s => ({ value: s, label: s }))]}
-            />
-            <Dropdown
-              value={liFilter}
-              onChange={setLiFilter}
-              options={[{ value: '', label: 'All LI Statuses' }, ...LINKEDIN_DM_STATUSES.map(s => ({ value: s, label: s }))]}
-            />
-            {(emailFilter || liFilter || search) && (
-              <button
-                onClick={() => { setSearch(''); setEmailFilter(''); setLiFilter('') }}
-                className="text-zinc-500 hover:text-white text-sm transition"
-              >
-                Clear
-              </button>
-            )}
-            <span className="text-zinc-600 text-xs ml-auto">{filtered.length} prospects</span>
-          </div>
+<div className="flex items-center gap-3 px-6 py-4 border-b border-[#1f1f1f]">
+  <Input
+    value={search}
+    onChange={e => setSearch(e.target.value)}
+    placeholder="Search by name, email, company, LinkedIn URL..."
+    className="w-80"
+  />
+
+  {/* Pipeline mode switch */}
+  <div className="flex items-center bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-1 gap-1">
+    <button
+      onClick={() => { setPipelineMode('email'); setLiFilter('') }}
+      className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+        pipelineMode === 'email'
+          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+          : 'text-zinc-500 hover:text-white'
+      }`}
+    >
+      ✉️ Email
+    </button>
+    <button
+      onClick={() => { setPipelineMode('linkedin'); setEmailFilter('') }}
+      className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+        pipelineMode === 'linkedin'
+          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+          : 'text-zinc-500 hover:text-white'
+      }`}
+    >
+      🔗 LinkedIn
+    </button>
+  </div>
+
+  {/* Contextual filter dropdown */}
+  {pipelineMode === 'email' ? (
+    <Dropdown
+      value={emailFilter}
+      onChange={setEmailFilter}
+      options={[{ value: '', label: 'All Email Stages' }, ...EMAIL_PIPELINE_STAGES.map(s => ({ value: s, label: s }))]}
+    />
+  ) : (
+    <Dropdown
+      value={liFilter}
+      onChange={setLiFilter}
+      options={[{ value: '', label: 'All LI Statuses' }, ...LINKEDIN_DM_STATUSES.map(s => ({ value: s, label: s }))]}
+    />
+  )}
+
+  {(emailFilter || liFilter || search) && (
+    <button
+      onClick={() => { setSearch(''); setEmailFilter(''); setLiFilter('') }}
+      className="text-zinc-500 hover:text-white text-sm transition"
+    >
+      Clear
+    </button>
+  )}
+  <span className="text-zinc-600 text-xs ml-auto">{filtered.length} prospects</span>
+</div>
 
           {/* Table + Side Panel */}
           <div className={`flex ${selectedProspect ? 'mr-[420px]' : ''} transition-all`}>
@@ -117,10 +157,9 @@ export default function SalesDashboard() {
         <ProspectModal
           prospect={selectedProspect}
           onClose={() => setSelectedProspect(null)}
-          onUpdated={() => {
-            refetch()
-            // Keep panel open but refresh data
-          }}
+          onUpdated={async () => { await refetchOne(selectedProspect.id) }}
+          updateProspect={updateProspect}
+          deleteProspect={deleteProspect}
         />
       )}
 
