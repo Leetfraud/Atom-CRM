@@ -133,21 +133,10 @@ export function useProspects(searchQuery = '') {
   )
 }
 
-  async function refetchOne(id) {
-  const { data, error } = await supabase
-    .from('prospects')
-    .select(`
-      *,
-      email_pipeline(*),
-      linkedin_pipeline(*),
-      prospect_tags(tag)
-    `)
-    .eq('id', id)
-    .single()
-
-  if (!error) {
-    setProspects(prev => prev.map(p => p.id === id ? data : p))
-  }
+  function updateProspectLocal(id, updater) {
+    setProspects(prev => prev.map(p =>
+      p.id === id ? (typeof updater === 'function' ? updater(p) : { ...p, ...updater }) : p
+    ))
   }
 
   return {
@@ -157,9 +146,9 @@ export function useProspects(searchQuery = '') {
     addProspect,
     filterProspects,
     updateProspect,
+    updateProspectLocal,
     deleteProspect,
     refetch: () => fetchProspects(true),
-    refetchOne,
     generateSerial
   }
 }

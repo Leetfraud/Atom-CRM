@@ -15,7 +15,7 @@ import {
   PROSPECT_TAGS
 } from '../../utils/constants'
 
-export default function ProspectModal({ prospect, onClose, onUpdated, updateProspect, deleteProspect  }) {
+export default function ProspectModal({ prospect, onClose, updateProspect, updateProspectLocal, deleteProspect  }) {
 const { logs, loading: logsLoading, addLog } = useActivityLog(prospect.id)
 const { updateEmailPipeline } = useEmailActivity(addLog)
 const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
@@ -34,63 +34,144 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
     place: prospect.place ?? '',
     notes: prospect.notes ?? '',
   })
-  const [tags, setTags] = useState(prospect.prospect_tags?.map(t => t.tag) ?? [])
+  const [editTags, setEditTags] = useState(prospect.prospect_tags?.map(t => t.tag) ?? [])
   const [activeTab, setActiveTab] = useState('email')
   const [newNote, setNewNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
 
+  const [stageError, setStageError] = useState(null)
+  const [connectionError, setConnectionError] = useState(null)
+  const [dmError, setDmError] = useState(null)
+  const [repliedError, setRepliedError] = useState(null)
+  const [saveError, setSaveError] = useState(null)
 
   if (!prospect) return null
 
   const email = prospect.email_pipeline?.[0]
   const li = prospect.linkedin_pipeline?.[0]
+  const tags = prospect.prospect_tags?.map(t => t.tag) ?? []
 
   function setField(field, value) {
     setEditForm(prev => ({ ...prev, [field]: value }))
   }
 
   function toggleTag(tag) {
-    setTags(prev =>
+    setEditTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     )
   }
 
+  function handleToggleEdit() {
+    if (!editing) {
+      setEditForm({
+        first_name: prospect.first_name ?? '',
+        last_name: prospect.last_name ?? '',
+        company: prospect.company ?? '',
+        role_title: prospect.role_title ?? '',
+        email: prospect.email ?? '',
+        linkedin_url: prospect.linkedin_url ?? '',
+        company_url: prospect.company_url ?? '',
+        youtube_url: prospect.youtube_url ?? '',
+        gamma_doc_url: prospect.gamma_doc_url ?? '',
+        place: prospect.place ?? '',
+        notes: prospect.notes ?? '',
+      })
+      setEditTags(prospect.prospect_tags?.map(t => t.tag) ?? [])
+      setSaveError(null)
+    }
+    setEditing(prev => !prev)
+  }
+
   async function handleSaveEdit() {
     setSaving(true)
-    await updateProspect(prospect.id, editForm)
+    setSaveError(null)
+    const previous = prospect
+    const previousTags = tags
 
-    // Sync tags — delete all then reinsert
-    const { supabase } = await import('../../lib/supabase')
-    await supabase.from('prospect_tags').delete().eq('prospect_id', prospect.id)
-    if (tags.length > 0) {
-      await supabase.from('prospect_tags').insert(
-        tags.map(tag => ({ prospect_id: prospect.id, tag }))
-      )
+    updateProspectLocal(prospect.id, p => ({
+      ...p,
+      ...editForm,
+      prospect_tags: editTags.map(tag => ({ tag })),
+    }))
+
+    const { error: updateError } = await updateProspect(prospect.id, editForm)
+
+    let tagsError = null
+    if (!updateError) {
+      const { supabase } = await import('../../lib/supabase')
+      await supabase.from('prospect_tags').delete().eq('prospect_id', prospect.id)
+      if (editTags.length > 0) {
+        const { error } = await supabase.from('prospect_tags').insert(
+          editTags.map(tag => ({ prospect_id: prospect.id, tag }))
+        )
+        tagsError = error?.message ?? null
+      }
     }
 
-    onUpdated()
-    setEditing(false)
+    const error = updateError || tagsError
+    if (error) {
+      updateProspectLocal(prospect.id, () => ({ ...previous, prospect_tags: previousTags.map(tag => ({ tag })) }))
+      setSaveError(error)
+    } else {
+      setEditing(false)
+    }
     setSaving(false)
   }
 
   async function handleEmailStageChange(stage) {
+    const previousStage = email?.stage
     setSaving(true)
-    await updateEmailPipeline(prospect.id, { stage })
-    await onUpdated()
+    setStageError(null)
+    updateProspectLocal(prospect.id, p => ({
+      ...p,
+      email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), stage }]
+    }))
+    const { error } = await updateEmailPipeline(prospect.id, { stage })
+    if (error) {
+      updateProspectLocal(prospect.id, p => ({
+        ...p,
+        email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), stage: previousStage }]
+      }))
+      setStageError(error)
+    }
     setSaving(false)
   }
 
   async function handleLIConnectionChange(status) {
+    const previousStatus = li?.connection_status
     setSaving(true)
-    await updateLinkedinPipeline(prospect.id, { connection_status: status })
-    await onUpdated()
+    setConnectionError(null)
+    updateProspectLocal(prospect.id, p => ({
+      ...p,
+      linkedin_pipeline: [{ ...(p.linkedin_pipeline?.[0] ?? {}), connection_status: status }]
+    }))
+    const { error } = await updateLinkedinPipeline(prospect.id, { connection_status: status })
+    if (error) {
+      updateProspectLocal(prospect.id, p => ({
+        ...p,
+        linkedin_pipeline: [{ ...(p.linkedin_pipeline?.[0] ?? {}), connection_status: previousStatus }]
+      }))
+      setConnectionError(error)
+    }
     setSaving(false)
   }
 
   async function handleLIDMChange(status) {
+    const previousStatus = li?.dm_status
     setSaving(true)
-    await updateLinkedinPipeline(prospect.id, { dm_status: status })
-    await onUpdated()
+    setDmError(null)
+    updateProspectLocal(prospect.id, p => ({
+      ...p,
+      linkedin_pipeline: [{ ...(p.linkedin_pipeline?.[0] ?? {}), dm_status: status }]
+    }))
+    const { error } = await updateLinkedinPipeline(prospect.id, { dm_status: status })
+    if (error) {
+      updateProspectLocal(prospect.id, p => ({
+        ...p,
+        linkedin_pipeline: [{ ...(p.linkedin_pipeline?.[0] ?? {}), dm_status: previousStatus }]
+      }))
+      setDmError(error)
+    }
     setSaving(false)
   }
 
@@ -132,7 +213,7 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
         </div>
         <div className="flex items-center gap-2 mt-1">
           <button
-            onClick={() => setEditing(!editing)}
+            onClick={handleToggleEdit}
             className={`text-xs px-3 py-1.5 rounded-lg border transition ${
               editing
                 ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
@@ -180,7 +261,7 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
                     key={tag}
                     onClick={() => toggleTag(tag)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition border ${
-                      tags.includes(tag)
+                      editTags.includes(tag)
                         ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
                         : 'bg-[#1a1a1a] border-[#2a2a2a] text-zinc-400 hover:border-zinc-500'
                     }`}
@@ -200,6 +281,8 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
                 className="w-full bg-[#1a1a1a] text-white rounded-lg px-4 py-2.5 text-sm border border-[#2a2a2a] focus:outline-none focus:border-orange-500/50 placeholder-zinc-600 resize-none transition"
               />
             </div>
+
+            {saveError && <p className="text-red-400 text-xs">{saveError}</p>}
 
             <div className="flex justify-end gap-3 pt-2 border-t border-[#1f1f1f]">
               <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
@@ -245,6 +328,7 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
                   onChange={handleEmailStageChange}
                   options={EMAIL_PIPELINE_STAGES}
                 />
+                {stageError && <p className="text-red-400 text-xs">{stageError}</p>}
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-[#1a1a1a] rounded-lg p-3 border border-[#2a2a2a]">
                     <p className="text-zinc-500 mb-1">Inbox</p>
@@ -267,9 +351,22 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
   <span className="text-zinc-500 text-xs">Replied</span>
   <button
     onClick={async () => {
+      const previousReplied = email?.replied
+      const nextReplied = !previousReplied
       setSaving(true)
-      await updateEmailPipeline(prospect.id, { replied: !email?.replied })
-      await onUpdated()
+      setRepliedError(null)
+      updateProspectLocal(prospect.id, p => ({
+        ...p,
+        email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), replied: nextReplied }]
+      }))
+      const { error } = await updateEmailPipeline(prospect.id, { replied: nextReplied })
+      if (error) {
+        updateProspectLocal(prospect.id, p => ({
+          ...p,
+          email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), replied: previousReplied }]
+        }))
+        setRepliedError(error)
+      }
       setSaving(false)
     }}
     className={`relative w-9 h-5 rounded-full transition-colors ${
@@ -281,6 +378,7 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
     }`} />
   </button>
 </div>
+{repliedError && <p className="text-red-400 text-xs">{repliedError}</p>}
               </div>
             </div>
 
@@ -294,12 +392,14 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
                   onChange={handleLIConnectionChange}
                   options={LINKEDIN_CONNECTION_STATUSES}
                 />
+                {connectionError && <p className="text-red-400 text-xs">{connectionError}</p>}
                 <Dropdown
                   label="DM Status"
                   value={li?.dm_status ?? 'Not Sent'}
                   onChange={handleLIDMChange}
                   options={LINKEDIN_DM_STATUSES}
                 />
+                {dmError && <p className="text-red-400 text-xs">{dmError}</p>}
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-[#1a1a1a] rounded-lg p-3 border border-[#2a2a2a]">
                     <p className="text-zinc-500 mb-1">Follow-ups Sent</p>

@@ -11,7 +11,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (role === 'exec') navigate('/exec')
+    if (role === 'exec') navigate('/analytics')
     if (role === 'sales') navigate('/sales')
   }, [role, navigate])
 

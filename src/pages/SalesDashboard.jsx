@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import Topbar from '../components/layout/Topbar'
 import ProspectTable from '../components/prospects/ProspectTable'
@@ -16,17 +16,12 @@ export default function SalesDashboard() {
   const [search, setSearch] = useState('')
   const [emailFilter, setEmailFilter] = useState('')
   const [liFilter, setLiFilter] = useState('')
-  const [selectedProspect, setSelectedProspect] = useState(null)
+  const [selectedProspectId, setSelectedProspectId] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const { prospects, loading, filterProspects, addProspect, refetch, refetchOne ,generateSerial, updateProspect, deleteProspect } = useProspects()
+  const { prospects, loading, filterProspects, addProspect, refetch, generateSerial, updateProspect, updateProspectLocal, deleteProspect } = useProspects()
   const [pipelineMode, setPipelineMode] = useState('email') // 'email' | 'linkedin'
 
-  useEffect(() => {
-  if (selectedProspect) {
-    const updated = prospects.find(p => p.id === selectedProspect.id)
-    if (updated) setSelectedProspect(updated)
-      }
-      }, [prospects])
+  const selectedProspect = prospects.find(p => p.id === selectedProspectId) ?? null
 
   // Filter prospects client-side by pipeline stage
   const searched = filterProspects(search)
@@ -43,12 +38,14 @@ export default function SalesDashboard() {
   // Quick stats
   const total = prospects.length
   const connected = prospects.filter(p => p.linkedin_pipeline?.[0]?.connection_status === 'Connected').length
+  const requestSent = prospects.filter(p => p.linkedin_pipeline?.[0]?.connection_status === 'Request Sent').length
   const replied = prospects.filter(p => p.email_pipeline?.[0]?.replied).length
   const closed = prospects.filter(p => p.email_pipeline?.[0]?.stage === 'Closed').length
 
   async function handleAddProspect(data) {
     const { error } = await addProspect(data)
     if (!error) setShowAddModal(false)
+    return { error }
   }
 
   return (
@@ -67,9 +64,10 @@ export default function SalesDashboard() {
 
         <main className="pt-14">
           {/* Stats row */}
-          <div className="grid grid-cols-4 gap-4 p-6 border-b border-[#1f1f1f]">
+          <div className="grid grid-cols-5 gap-4 p-6 border-b border-[#1f1f1f]">
             <StatCard label="Total Prospects" value={total} icon="👥" />
             <StatCard label="LI Connected" value={connected} icon="🔗" sub={`${total ? ((connected/total)*100).toFixed(0) : 0}% acceptance rate`} />
+            <StatCard label="Request Sent" value={requestSent} icon="📨" />
             <StatCard label="Email Replies" value={replied} icon="✉️" sub={`${total ? ((replied/total)*100).toFixed(0) : 0}% reply rate`} />
             <StatCard label="Closed" value={closed} icon="🏆" accent />
           </div>
@@ -144,7 +142,7 @@ export default function SalesDashboard() {
                 <ProspectTable
                   prospects={filtered}
                   selectedId={selectedProspect?.id}
-                  onSelectProspect={p => setSelectedProspect(prev => prev?.id === p.id ? null : p)}
+                  onSelectProspect={p => setSelectedProspectId(prev => prev === p.id ? null : p.id)}
                 />
               )}
             </div>
@@ -156,9 +154,9 @@ export default function SalesDashboard() {
       {selectedProspect && (
         <ProspectModal
           prospect={selectedProspect}
-          onClose={() => setSelectedProspect(null)}
-          onUpdated={async () => { await refetchOne(selectedProspect.id) }}
+          onClose={() => setSelectedProspectId(null)}
           updateProspect={updateProspect}
+          updateProspectLocal={updateProspectLocal}
           deleteProspect={deleteProspect}
         />
       )}

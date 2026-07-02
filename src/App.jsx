@@ -3,7 +3,9 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Login from './pages/Login'
 import SalesDashboard from './pages/SalesDashboard'
-import ExecDashboard from './pages/ExecDashboard'
+import Analytics from './pages/Analytics'
+import DailyLog from './pages/DailyLog'
+import Import from './pages/Import'
 import { SidebarProvider } from './context/SidebarContext'
 
 export default function App() {
@@ -18,9 +20,19 @@ export default function App() {
               <SalesDashboard />
             </ProtectedRoute>
           } />
-          <Route path="/exec" element={
+          <Route path="/analytics" element={
             <ProtectedRoute allowedRoles={['exec']}>
-              <ExecDashboard />
+              <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/daily-log" element={
+            <ProtectedRoute allowedRoles={['exec']}>
+              <DailyLog />
+            </ProtectedRoute>
+          } />
+          <Route path="/import" element={
+            <ProtectedRoute allowedRoles={['exec']}>
+              <Import />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/login" replace />} />

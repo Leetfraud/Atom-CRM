@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   if (!user) return <Navigate to="/login" replace />
 
   if (allowedRoles && !allowedRoles.includes(role)) {
-    return <Navigate to={role === 'exec' ? '/exec' : '/sales'} replace />
+    return <Navigate to={role === 'exec' ? '/analytics' : '/sales'} replace />
   }
 
   return children

@@ -18,7 +18,7 @@ export const EMAIL_PIPELINE_STAGES = [
   'Not Interested',
 ]
 
-export const LINKEDIN_CONNECTION_STATUSES = ['Pending', 'Connected']
+export const LINKEDIN_CONNECTION_STATUSES = ['Pending', 'Request Sent', 'Connected']
 
 export const LINKEDIN_DM_STATUSES = [
   'Not Sent',
@@ -40,8 +40,6 @@ export const PROSPECT_TAGS = [
   'Needs New Script',
   'Edits',
   'No Results Available',
-  'CA Student',
-  'Usama',
   'Without Loom',
   'D1',
   'Discussion',

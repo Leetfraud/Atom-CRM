@@ -17,6 +17,7 @@ const stageColors = {
   'No Status': 'bg-gray-800 text-gray-400',
   'Not Interested': 'bg-red-950 text-red-400',
   'Pending': 'bg-yellow-900 text-yellow-300',
+  'Request Sent': 'bg-blue-900 text-blue-300',
   'Connected': 'bg-green-900 text-green-300',
   'Not Sent': 'bg-gray-800 text-gray-400',
   'Message Sent': 'bg-blue-900 text-blue-300',

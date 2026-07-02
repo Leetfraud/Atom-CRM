@@ -27,6 +27,13 @@ const emptyForm = {
   tags: [],
 }
 
+// Manual checks:
+// parseSmartPaste('youtube.com/@acme - main channel, weekly uploads')
+//   -> { youtube_url: 'youtube.com/@acme', notes: 'main channel, weekly uploads' }
+// parseSmartPaste('linkedin.com/in/johnsmith (2nd degree connection)')
+//   -> { linkedin_url: 'linkedin.com/in/johnsmith', notes: '(2nd degree connection)' }
+// parseSmartPaste('john@acme.com — primary inbox')
+//   -> { email: 'john@acme.com', notes: 'primary inbox' }
 function parseSmartPaste(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const result = {}
@@ -36,30 +43,50 @@ function parseSmartPaste(text) {
     // Strip common prefixes
     line = line.replace(/^(linkedin|gamma|youtube|email|company|url|website|name|role|title)\s*:\s*/i, '').trim()
 
-    // Email
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(line)) {
-      result.email = line
+    // Email — extract just the address, push any leftover text to notes.
+    // Local part excludes '/' so URL paths with '@' (e.g. youtube.com/@acme.tv) aren't misread as emails.
+    const emailMatch = line.match(/[^\s@/]+@[^\s@]+\.[^\s@]+/)
+    if (emailMatch && !result.email) {
+      result.email = emailMatch[0]
+      const rest = line.replace(emailMatch[0], '').trim().replace(/^[-–—:|,]\s*/, '')
+      if (rest) unmatched.push(rest)
       continue
     }
     // LinkedIn URL
     if (/linkedin\.com/i.test(line)) {
-      result.linkedin_url = line
+      const match = line.match(/(https?:\/\/\S*linkedin\.com\S*|www\.\S*linkedin\.com\S*|\S*linkedin\.com\S*)/i)
+      result.linkedin_url = match[0]
+      const rest = line.replace(match[0], '').trim().replace(/^[-–—:|]\s*/, '')
+      if (rest) unmatched.push(rest)
       continue
     }
     // YouTube URL
     if (/youtube\.com|youtu\.be/i.test(line)) {
-      result.youtube_url = line
+      const match = line.match(/(https?:\/\/\S*(youtube\.com|youtu\.be)\S*|www\.\S*(youtube\.com|youtu\.be)\S*|\S*(youtube\.com|youtu\.be)\S*)/i)
+      result.youtube_url = match[0]
+      const rest = line.replace(match[0], '').trim().replace(/^[-–—:|]\s*/, '')
+      if (rest) unmatched.push(rest)
       continue
     }
     // Gamma doc URL
     if (/gamma\.app/i.test(line)) {
-      result.gamma_doc_url = line
+      const match = line.match(/(https?:\/\/\S*gamma\.app\S*|www\.\S*gamma\.app\S*|\S*gamma\.app\S*)/i)
+      result.gamma_doc_url = match[0]
+      const rest = line.replace(match[0], '').trim().replace(/^[-–—:|]\s*/, '')
+      if (rest) unmatched.push(rest)
       continue
     }
     // Generic URL
     if (/^https?:\/\//i.test(line) || /^www\./i.test(line)) {
-      if (!result.company_url) result.company_url = line
-      else unmatched.push(line)
+      const match = line.match(/(https?:\/\/\S+|www\.\S+)/i)
+      const url = match[0]
+      const rest = line.replace(url, '').trim().replace(/^[-–—:|]\s*/, '')
+      if (!result.company_url) {
+        result.company_url = url
+        if (rest) unmatched.push(rest)
+      } else {
+        unmatched.push(line)
+      }
       continue
     }
     // Role/title with colon — split role from name
@@ -105,6 +132,8 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
   const [form, setForm] = useState(emptyForm)
   const [pasteText, setPasteText] = useState('')
   const [showPaste, setShowPaste] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
   function set(field, value) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -128,28 +157,37 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
 
   async function handleSubmit() {
     if (!form.first_name) return
-    const serial = await generateSerial()
-    onSubmit({
-      serial,
-      first_name: form.first_name,
-      last_name: form.last_name,
-      company: form.company,
-      role_title: form.role_title,
-      email: form.email,
-      linkedin_url: form.linkedin_url,
-      company_url: form.company_url,
-      gamma_doc_url: form.gamma_doc_url,
-      youtube_url: form.youtube_url,
-      place: form.place,
-      notes: form.notes,
-      tags: form.tags,
-      email_pipeline: { stage: form.email_stage },
-      linkedin_pipeline: {
-        connection_status: form.connection_status,
-        dm_status: form.dm_status,
-        connection_sent_at: new Date().toISOString(),
-      },
-    })
+    setSubmitError(null)
+    setSubmitting(true)
+    try {
+      const serial = await generateSerial()
+      const result = await onSubmit({
+        serial,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        company: form.company,
+        role_title: form.role_title,
+        email: form.email,
+        linkedin_url: form.linkedin_url,
+        company_url: form.company_url,
+        gamma_doc_url: form.gamma_doc_url,
+        youtube_url: form.youtube_url,
+        place: form.place,
+        notes: form.notes,
+        tags: form.tags,
+        email_pipeline: { stage: form.email_stage },
+        linkedin_pipeline: {
+          connection_status: form.connection_status,
+          dm_status: form.dm_status,
+          connection_sent_at: new Date().toISOString(),
+        },
+      })
+      if (result?.error) setSubmitError(result.error)
+    } catch (err) {
+      setSubmitError(err.message ?? 'Failed to add prospect')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -247,11 +285,14 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-[#1f1f1f]">
-        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={loading || !form.first_name}>
-          {loading ? 'Adding...' : 'Add Prospect'}
-        </Button>
+      <div className="flex flex-col gap-2 pt-2 border-t border-[#1f1f1f]">
+        {submitError && <p className="text-red-400 text-xs text-right">{submitError}</p>}
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={submitting || !form.first_name}>
+            {submitting ? 'Adding...' : 'Add Prospect'}
+          </Button>
+        </div>
       </div>
     </div>
   )
