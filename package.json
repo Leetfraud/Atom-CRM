@@ -11,6 +11,8 @@
   "dependencies": {
     "@supabase/supabase-js": "latest",
     "@tailwindcss/vite": "latest",
+    "jszip": "^3.10.1",
+    "papaparse": "^5.5.4",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
