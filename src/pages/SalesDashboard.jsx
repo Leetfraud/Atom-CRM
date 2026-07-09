@@ -3,6 +3,7 @@ import Sidebar from '../components/layout/Sidebar'
 import Topbar from '../components/layout/Topbar'
 import ProspectTable from '../components/prospects/ProspectTable'
 import ProspectModal from '../components/prospects/ProspectModal'
+import ProspectNotesPanel from '../components/prospects/ProspectNotesPanel'
 import ProspectForm from '../components/prospects/ProspectForm'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
@@ -62,7 +63,7 @@ export default function SalesDashboard() {
           }
         />
 
-        <main className="pt-14">
+        <main className={`pt-14 transition-all ${selectedProspect ? 'ml-72 mr-[420px]' : ''}`}>
           {/* Stats row */}
           <div className="grid grid-cols-5 gap-4 p-6 border-b border-[#1f1f1f]">
             <StatCard label="Total Prospects" value={total} icon="👥" />
@@ -132,7 +133,7 @@ export default function SalesDashboard() {
 </div>
 
           {/* Table + Side Panel */}
-          <div className={`flex ${selectedProspect ? 'mr-[420px]' : ''} transition-all`}>
+          <div className="flex">
             <div className="flex-1 overflow-hidden">
               {loading ? (
                 <div className="flex items-center justify-center py-24">
@@ -149,6 +150,9 @@ export default function SalesDashboard() {
           </div>
         </main>
       </div>
+
+      {/* Notes Panel */}
+      {selectedProspect && <ProspectNotesPanel prospect={selectedProspect} />}
 
       {/* Side Panel */}
       {selectedProspect && (

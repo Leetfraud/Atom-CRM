@@ -28,7 +28,7 @@ export default function Sidebar() {
       <div className="flex items-center justify-between px-1 mb-8">
         {!collapsed && (
           <div>
-            <span className="text-orange-500 font-bold text-lg tracking-tight">EXODUS</span>
+            <span className="text-orange-500 font-bold text-lg tracking-tight">ATOM</span>
             <span className="text-zinc-600 text-xs block uppercase tracking-widest mt-0.5">CRM</span>
           </div>
         )}

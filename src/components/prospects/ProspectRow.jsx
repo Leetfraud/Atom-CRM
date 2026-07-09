@@ -79,7 +79,26 @@ export default function ProspectRow({ prospect, isSelected, onClick }) {
           )}
         </div>
       </td>
+{/* Notes preview */}
+<td className="px-4 py-3 max-w-[180px]">
+  {prospect.notes ? (
+    <span
+      className="text-zinc-500 text-xs truncate block cursor-default"
+      title={prospect.notes}
+    >
+      {prospect.notes.length > 60
+        ? prospect.notes.slice(0, 60) + '…'
+        : prospect.notes}
+    </span>
+  ) : (
+    <span className="text-zinc-700 text-xs">—</span>
+  )}
+</td>
 
+
+
+
+      
       {/* Added */}
       <td className="px-4 py-3 text-zinc-500 text-xs whitespace-nowrap">
         {formatDate(prospect.created_at)}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -29,7 +29,7 @@ export default function Login() {
     <div className="flex items-center justify-center h-screen bg-[#0a0a0a]">
       <div className="bg-[#111111] p-8 rounded-xl w-full max-w-sm border border-[#1f1f1f]">
         <div className="mb-6">
-          <span className="text-orange-500 font-bold text-xl tracking-tight">EXODUS</span>
+          <span className="text-orange-500 font-bold text-xl tracking-tight">ATOM</span>
           <span className="text-zinc-600 text-xs block uppercase tracking-widest mt-0.5">CRM</span>
         </div>
         <p className="text-zinc-400 text-sm mb-6">Sign in to your account</p>
@@ -41,7 +41,7 @@ export default function Login() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               className="w-full bg-[#1a1a1a] text-white rounded-lg px-4 py-2.5 text-sm border border-[#2a2a2a] focus:outline-none focus:border-orange-500/50 placeholder-zinc-600 transition"
-              placeholder="you@exodus.com"
+              placeholder="you@atom.com"
             />
           </div>
           <div>
@@ -63,6 +63,12 @@ export default function Login() {
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
+          <p className="text-zinc-500 text-xs text-center mt-1">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-orange-400 hover:text-orange-300 transition">
+              Create one
+            </Link>
+          </p>
         </div>
       </div>
     </div>

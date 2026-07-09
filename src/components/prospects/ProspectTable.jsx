@@ -17,7 +17,7 @@ export default function ProspectTable({ prospects, onSelectProspect, selectedId 
           <tr className="border-b border-[#1f1f1f]">
             {[
               'Serial', 'Name', 'Company', 'Role',
-              'Email Stage', 'LI Connection', 'LI DM', 'Tags', 'Added'
+              'Email Stage', 'LI Connection', 'LI DM', 'Tags', 'Notes', 'Added'
             ].map(col => (
               <th key={col} className="text-left text-xs text-zinc-500 uppercase tracking-widest font-medium px-4 py-3 whitespace-nowrap">
                 {col}

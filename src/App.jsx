@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import SalesDashboard from './pages/SalesDashboard'
 import Analytics from './pages/Analytics'
 import DailyLog from './pages/DailyLog'
@@ -15,6 +16,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/sales" element={
             <ProtectedRoute allowedRoles={['sales', 'exec']}>
               <SalesDashboard />

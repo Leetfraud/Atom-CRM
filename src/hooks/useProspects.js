@@ -129,7 +129,8 @@ export function useProspects(searchQuery = '') {
     (p.youtube_url ?? '').toLowerCase().includes(q) ||
     (p.gamma_doc_url ?? '').toLowerCase().includes(q) ||
     (p.company_url ?? '').toLowerCase().includes(q) ||
-    (p.place ?? '').toLowerCase().includes(q)
+    (p.place ?? '').toLowerCase().includes(q) ||
+    (p.notes ?? '').toLowerCase().includes(q)
   )
 }
 

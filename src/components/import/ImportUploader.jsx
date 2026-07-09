@@ -2,6 +2,35 @@ import { useState } from 'react'
 import JSZip from 'jszip'
 import Button from '../ui/Button'
 
+const MAX_ZIP_DEPTH = 5
+
+// Recursively walk a JSZip instance, collecting every .md and .csv entry.
+// Notion exports are sometimes double-wrapped (an outer .zip containing only
+// an inner ...-Part-1.zip), so any .zip entry found along the way is loaded
+// and descended into as well.
+async function collectZipEntries(zip, depth = 0) {
+  const mdEntries = []
+  const csvFiles = []
+  if (depth > MAX_ZIP_DEPTH) return { mdEntries, csvFiles }
+
+  const entries = Object.values(zip.files).filter(f => !f.dir)
+  for (const entry of entries) {
+    const lower = entry.name.toLowerCase()
+    if (lower.endsWith('.md')) {
+      mdEntries.push(entry)
+    } else if (lower.endsWith('.csv')) {
+      csvFiles.push(entry)
+    } else if (lower.endsWith('.zip')) {
+      const buffer = await entry.async('arraybuffer')
+      const innerZip = await JSZip.loadAsync(buffer)
+      const inner = await collectZipEntries(innerZip, depth + 1)
+      mdEntries.push(...inner.mdEntries)
+      csvFiles.push(...inner.csvFiles)
+    }
+  }
+  return { mdEntries, csvFiles }
+}
+
 // Reads the raw files the user provides and hands the extracted text back up.
 // LinkedIn is a single CSV. The email export is either a .zip (CSV + a folder of
 // .md files) or the same two pieces picked separately.
@@ -15,6 +44,7 @@ export default function ImportUploader({ onReady, parsing }) {
 
   async function handleLinkedinCsv(e) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     setError(null)
     setLinkedinCsv({ name: file.name, text: await file.text() })
@@ -22,6 +52,7 @@ export default function ImportUploader({ onReady, parsing }) {
 
   async function handleEmailCsv(e) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     setError(null)
     setEmailCsv({ name: file.name, text: await file.text() })
@@ -29,6 +60,7 @@ export default function ImportUploader({ onReady, parsing }) {
 
   async function handleEmailMd(e) {
     const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
     setError(null)
     const csv = files.find(f => f.name.toLowerCase().endsWith('.csv'))
     const md = files.filter(f => f.name.toLowerCase().endsWith('.md'))
@@ -38,24 +70,36 @@ export default function ImportUploader({ onReady, parsing }) {
 
   async function handleZip(e) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     setBusy(true)
     setError(null)
     try {
       const zip = await JSZip.loadAsync(file)
-      const entries = Object.values(zip.files).filter(f => !f.dir)
-
-      const csvEntry = entries
-        .filter(f => f.name.toLowerCase().endsWith('.csv'))
-        .sort((a, b) => a.name.split('/').length - b.name.split('/').length)[0]
-      const mdEntries = entries.filter(f => f.name.toLowerCase().endsWith('.md'))
+      const { mdEntries, csvFiles } = await collectZipEntries(zip)
 
       if (!mdEntries.length) {
         setError('No .md files found in the zip. Export from Notion with page content included.')
       }
 
-      if (csvEntry) {
-        setEmailCsv({ name: csvEntry.name.split('/').pop(), text: await csvEntry.async('string') })
+      if (csvFiles.length) {
+        const preferred = csvFiles.find(f => f.name.toLowerCase().endsWith('_all.csv'))
+        let csvEntry = preferred
+        let csvText
+
+        if (preferred) {
+          csvText = await preferred.async('string')
+        } else {
+          const withText = await Promise.all(
+            csvFiles.map(async f => ({ entry: f, text: await f.async('string') }))
+          )
+          const headerColumnCount = text => (text.split(/\r?\n/)[0] ?? '').split(',').length
+          withText.sort((a, b) => headerColumnCount(b.text) - headerColumnCount(a.text))
+          csvEntry = withText[0].entry
+          csvText = withText[0].text
+        }
+
+        setEmailCsv({ name: csvEntry.name.split('/').pop(), text: csvText })
       }
       setEmailMd(await Promise.all(
         mdEntries.map(async f => ({ name: f.name.split('/').pop(), content: await f.async('string') }))
@@ -66,6 +110,28 @@ export default function ImportUploader({ onReady, parsing }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  function clearLinkedinCsv() {
+    setLinkedinCsv(null)
+    setError(null)
+  }
+
+  function clearEmailZip() {
+    setZipName('')
+    setEmailMd([])
+    setEmailCsv(null)
+    setError(null)
+  }
+
+  function clearEmailMd() {
+    setEmailMd([])
+    setError(null)
+  }
+
+  function clearEmailCsv() {
+    setEmailCsv(null)
+    setError(null)
   }
 
   const canContinue = linkedinCsv || emailMd.length > 0
@@ -90,6 +156,7 @@ export default function ImportUploader({ onReady, parsing }) {
           onChange={handleLinkedinCsv}
           label={linkedinCsv ? linkedinCsv.name : 'Choose CSV file'}
           active={!!linkedinCsv}
+          onClear={clearLinkedinCsv}
         />
       </section>
 
@@ -107,6 +174,7 @@ export default function ImportUploader({ onReady, parsing }) {
             onChange={handleZip}
             label={busy ? 'Reading zip…' : zipName || 'Choose .zip file'}
             active={!!zipName}
+            onClear={clearEmailZip}
           />
 
           <div className="flex items-center gap-3">
@@ -122,6 +190,7 @@ export default function ImportUploader({ onReady, parsing }) {
             onChange={handleEmailMd}
             label={emailMd.length ? `${emailMd.length} markdown file(s) selected` : 'Choose folder of .md files'}
             active={emailMd.length > 0}
+            onClear={clearEmailMd}
           />
           <FileField
             id="email-csv"
@@ -129,6 +198,7 @@ export default function ImportUploader({ onReady, parsing }) {
             onChange={handleEmailCsv}
             label={emailCsv ? emailCsv.name : 'Choose properties CSV (optional if in folder)'}
             active={!!emailCsv}
+            onClear={clearEmailCsv}
           />
         </div>
       </section>
@@ -145,26 +215,37 @@ export default function ImportUploader({ onReady, parsing }) {
   )
 }
 
-function FileField({ id, accept, onChange, label, active, webkitdirectory }) {
+function FileField({ id, accept, onChange, label, active, webkitdirectory, onClear }) {
   return (
-    <label
-      htmlFor={id}
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm cursor-pointer transition ${
+    <div
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm transition ${
         active
           ? 'border-orange-500/40 bg-orange-500/5 text-orange-300'
           : 'border-[#2a2a2a] bg-[#1a1a1a] text-zinc-400 hover:border-zinc-500'
       }`}
     >
-      <span className="shrink-0">{active ? '✓' : '📎'}</span>
-      <span className="truncate">{label}</span>
-      <input
-        id={id}
-        type="file"
-        accept={accept}
-        onChange={onChange}
-        className="hidden"
-        {...(webkitdirectory ? { webkitdirectory: '', directory: '', multiple: true } : {})}
-      />
-    </label>
+      <label htmlFor={id} className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+        <span className="shrink-0">{active ? '✓' : '📎'}</span>
+        <span className="truncate">{label}</span>
+        <input
+          id={id}
+          type="file"
+          accept={accept}
+          onChange={onChange}
+          className="hidden"
+          {...(webkitdirectory ? { webkitdirectory: '', directory: '', multiple: true } : {})}
+        />
+      </label>
+      {active && onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          title="Clear"
+          className="shrink-0 text-zinc-500 hover:text-red-400 transition text-base leading-none px-1"
+        >
+          ✕
+        </button>
+      )}
+    </div>
   )
 }

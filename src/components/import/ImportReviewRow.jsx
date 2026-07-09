@@ -45,6 +45,11 @@ export default function ImportReviewRow({ row, onChange, onToggleInclude }) {
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${src.cls}`}>
           {src.label}
         </span>
+        {row.needsName && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 bg-amber-900/40 text-amber-300 border border-amber-500/30">
+            ⚠ Needs manual entry
+          </span>
+        )}
         <span className="text-white w-40 truncate shrink-0">
           {`${row.first_name} ${row.last_name}`.trim() || <span className="text-zinc-600">—</span>}
         </span>
