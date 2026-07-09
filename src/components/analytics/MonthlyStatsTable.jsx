@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+
 const COLUMNS = ['Date', 'Emails Sent', 'Replies', 'LI DMs', 'Docs Opened', 'Calls Booked', 'Closes', 'Cash (USD)', 'Revenue']
 
 const FIELDS = [
@@ -11,7 +13,51 @@ const FIELDS = [
   ['revenue', true],
 ]
 
+// Removes the native number-input spinner arrows so the cell reads as a plain spreadsheet cell.
+const CELL_CLASS =
+  'w-20 bg-transparent text-white text-sm px-2 py-1 rounded border border-transparent hover:border-[#2a2a2a] focus:border-orange-500/50 focus:bg-[#1a1a1a] focus:outline-none transition text-center ' +
+  '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0'
+
 export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, loading, onCellEdit }) {
+  const cellRefs = useRef({})
+
+  function focusCell(rowIdx, colIdx) {
+    const el = cellRefs.current[`${rowIdx}-${colIdx}`]
+    if (el) {
+      el.focus()
+      el.select()
+    }
+  }
+
+  function handleKeyDown(e, rowIdx, colIdx) {
+    const lastRow = allDays.length - 1
+    const lastCol = FIELDS.length - 1
+
+    switch (e.key) {
+      case 'ArrowUp':
+        e.preventDefault()
+        if (rowIdx > 0) focusCell(rowIdx - 1, colIdx)
+        break
+      case 'ArrowDown':
+        e.preventDefault()
+        if (rowIdx < lastRow) focusCell(rowIdx + 1, colIdx)
+        break
+      case 'ArrowLeft':
+        e.preventDefault()
+        if (colIdx > 0) focusCell(rowIdx, colIdx - 1)
+        break
+      case 'ArrowRight':
+        e.preventDefault()
+        if (colIdx < lastCol) focusCell(rowIdx, colIdx + 1)
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (rowIdx < lastRow) focusCell(rowIdx + 1, colIdx)
+        else e.target.blur()
+        break
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -33,7 +79,7 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
           </tr>
         </thead>
         <tbody>
-          {allDays.map(date => {
+          {allDays.map((date, rowIdx) => {
             const row = dailyStats.find(s => s.date === date) ?? {}
             const isToday = date === new Date().toISOString().split('T')[0]
             return (
@@ -45,11 +91,14 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
                   {new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   {isToday && <span className="ml-2 text-orange-500 text-xs">today</span>}
                 </td>
-                {FIELDS.map(([field, isDecimal]) => (
+                {FIELDS.map(([field, isDecimal], colIdx) => (
                   <td key={field} className="px-2 py-1">
                     <input
+                      ref={el => { cellRefs.current[`${rowIdx}-${colIdx}`] = el }}
                       type="number"
                       defaultValue={row[field] ?? 0}
+                      onFocus={e => e.target.select()}
+                      onKeyDown={e => handleKeyDown(e, rowIdx, colIdx)}
                       onBlur={e => {
                         const val = e.target.value
                         const original = String(row[field] ?? 0)
@@ -57,7 +106,7 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
                       }}
                       step={isDecimal ? '0.01' : '1'}
                       min="0"
-                      className="w-20 bg-transparent text-white text-sm px-2 py-1 rounded border border-transparent hover:border-[#2a2a2a] focus:border-orange-500/50 focus:bg-[#1a1a1a] focus:outline-none transition text-center"
+                      className={CELL_CLASS}
                     />
                   </td>
                 ))}

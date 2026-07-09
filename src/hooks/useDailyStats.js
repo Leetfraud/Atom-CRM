@@ -80,11 +80,16 @@ export function useDailyStats(month = null) {
     ? ((monthlyTotals.closes / monthlyTotals.calls_booked) * 100).toFixed(2)
     : '0.00'
 
+  const docOpenRate = monthlyTotals?.replies > 0
+    ? ((monthlyTotals.docs_opened / monthlyTotals.replies) * 100).toFixed(2)
+    : '0.00'
+
   return {
     dailyStats,
     monthlyTotals,
     replyRate,
     closeRate,
+    docOpenRate,
     loading,
     error,
     upsertDailyStat,

@@ -3,6 +3,8 @@ import Sidebar from '../components/layout/Sidebar'
 import Topbar from '../components/layout/Topbar'
 import StatsRow from '../components/analytics/StatsRow'
 import TrendChart from '../components/analytics/TrendChart'
+import GrowthChart from '../components/analytics/GrowthChart'
+import RatesChart from '../components/analytics/RatesChart'
 import { useDailyStats } from '../hooks/useDailyStats'
 import { getCurrentMonth, formatMonth } from '../utils/formatDate'
 
@@ -16,7 +18,7 @@ export default function Analytics() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
   const [pkrRate, setPkrRate] = useState(278)
   const [editingRate, setEditingRate] = useState(false)
-  const { dailyStats, monthlyTotals, replyRate, closeRate } = useDailyStats(selectedMonth)
+  const { dailyStats, monthlyTotals, replyRate, closeRate, docOpenRate } = useDailyStats(selectedMonth)
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex">
@@ -67,11 +69,16 @@ export default function Analytics() {
             monthlyTotals={monthlyTotals}
             replyRate={replyRate}
             closeRate={closeRate}
+            docOpenRate={docOpenRate}
             pkrRate={pkrRate}
           />
 
-          <div className="p-6">
+          <div className="p-6 flex flex-col gap-6">
             <TrendChart data={dailyStats} />
+            <div className="grid grid-cols-2 gap-6">
+              <GrowthChart data={dailyStats} />
+              <RatesChart replyRate={replyRate} docOpenRate={docOpenRate} closeRate={closeRate} />
+            </div>
           </div>
         </main>
       </div>

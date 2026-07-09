@@ -1,6 +1,6 @@
 import StatCard from '../ui/StatCard'
 
-export default function StatsRow({ monthlyTotals, replyRate, closeRate, pkrRate }) {
+export default function StatsRow({ monthlyTotals, replyRate, closeRate, docOpenRate, pkrRate }) {
   return (
     <div className="grid grid-cols-4 gap-4 p-6 border-b border-[#1f1f1f]">
       <StatCard
@@ -18,6 +18,7 @@ export default function StatsRow({ monthlyTotals, replyRate, closeRate, pkrRate 
         label="Doc Opens"
         value={monthlyTotals?.docs_opened ?? 0}
         icon="📄"
+        sub={`${docOpenRate}% open rate`}
       />
       <StatCard
         label="Calls Booked"
