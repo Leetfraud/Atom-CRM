@@ -41,6 +41,13 @@ create policy "authenticated_all_daily_stats" on daily_stats
 -- stance above) because profiles.role gates page access via ProtectedRoute.
 -- Self-registration (Register.jsx) inserts a row with id = auth.uid(), and
 -- AuthContext reads it back on login.
+--
+-- profiles.role has three valid app-level values: 'sales' | 'exec' | 'admin'
+-- ('admin' sees both the sales and exec areas). Nothing in the schema
+-- enforces this (no enum/CHECK constraint) - it's a convention read by
+-- ProtectedRoute/Sidebar/Login. 'admin' is intentionally not selectable in
+-- Register.jsx's signup form; grant it by editing a user's role cell
+-- directly in the Supabase Table Editor.
 
 -- drop policy if exists "self_select_profiles" on profiles;
 create policy "self_select_profiles" on profiles

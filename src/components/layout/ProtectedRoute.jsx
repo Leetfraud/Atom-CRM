@@ -12,7 +12,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
 
   if (!user) return <Navigate to="/login" replace />
 
-  if (allowedRoles && !allowedRoles.includes(role)) {
+  if (allowedRoles && role !== 'admin' && !allowedRoles.includes(role)) {
     return <Navigate to={role === 'exec' ? '/analytics' : '/sales'} replace />
   }
 

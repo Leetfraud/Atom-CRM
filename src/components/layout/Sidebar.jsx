@@ -43,7 +43,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex flex-col gap-1 flex-1">
         {navItems
-          .filter(item => item.roles.includes(role))
+          .filter(item => role === 'admin' || item.roles.includes(role))
           .map(item => (
             <NavLink
               key={item.path}
