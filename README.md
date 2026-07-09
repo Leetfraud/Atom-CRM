@@ -11,12 +11,12 @@ A lightweight internal CRM for tracking outbound sales prospects across email an
 
 ## Features
 
-- **Auth** — email/password login and self-service registration (`sales` or `exec` role), backed by Supabase Auth.
-- **Prospects** — add, edit, filter, and search prospects; track them through separate email and LinkedIn pipelines (stage, connection status, DM status, replies, etc.).
-- **Prospect detail card** — a right-side panel per prospect with links, pipeline controls, tags, and a per-channel activity log (notes + actions). A left-side panel mirrors the prospect's general notes and note history for quick reference while the card is open.
-- **Import** — bulk CSV import of prospects with a review step before committing.
-- **Analytics / Daily Log** — exec-only views of pipeline stats and daily activity trends.
-- **Team chat** — a simple shared chat panel accessible from the topbar.
+- **Auth** - email/password login and self-service registration (`sales` or `exec` role), backed by Supabase Auth.
+- **Prospects** - add, edit, filter, and search prospects; track them through separate email and LinkedIn pipelines (stage, connection status, DM status, replies, etc.).
+- **Prospect detail card** - a right-side panel per prospect with links, pipeline controls, tags, and a per-channel activity log (notes + actions). A left-side panel mirrors the prospect's general notes and note history for quick reference while the card is open.
+- **Import** - bulk CSV import of prospects with a review step before committing.
+- **Analytics / Daily Log** - exec-only views of pipeline stats and daily activity trends.
+- **Team chat** - a simple shared chat panel accessible from the topbar.
 
 Page access is role-gated: `sales` sees the Prospects page; `exec` additionally sees Analytics, Daily Log, and Import (see `src/components/layout/Sidebar.jsx` and `src/App.jsx`).
 
