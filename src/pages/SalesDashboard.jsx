@@ -18,6 +18,8 @@ export default function SalesDashboard() {
   const [emailFilter, setEmailFilter] = useState('')
   const [liFilter, setLiFilter] = useState('')
   const [selectedProspectId, setSelectedProspectId] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [lastSelectedIndex, setLastSelectedIndex] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const { prospects, loading, filterProspects, addProspect, refetch, generateSerial, updateProspect, updateProspectLocal, deleteProspect } = useProspects()
   const [pipelineMode, setPipelineMode] = useState('email') // 'email' | 'linkedin'
@@ -42,6 +44,28 @@ export default function SalesDashboard() {
   const requestSent = prospects.filter(p => p.linkedin_pipeline?.[0]?.connection_status === 'Request Sent').length
   const replied = prospects.filter(p => p.email_pipeline?.[0]?.replied).length
   const closed = prospects.filter(p => p.email_pipeline?.[0]?.stage === 'Closed').length
+
+  function handleSelectProspect(prospect, index, shiftKey) {
+    if (shiftKey && lastSelectedIndex !== null) {
+      const lo = Math.min(lastSelectedIndex, index)
+      const hi = Math.max(lastSelectedIndex, index)
+      const rangeIds = filtered.slice(lo, hi + 1).map(p => p.id)
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        rangeIds.forEach(id => next.add(id))
+        return next
+      })
+    } else {
+      const toggling = selectedIds.has(prospect.id)
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        toggling ? next.delete(prospect.id) : next.add(prospect.id)
+        return next
+      })
+      setSelectedProspectId(prev => prev === prospect.id ? null : prospect.id)
+      setLastSelectedIndex(index)
+    }
+  }
 
   async function handleAddProspect(data) {
     const { error } = await addProspect(data)
@@ -143,7 +167,8 @@ export default function SalesDashboard() {
                 <ProspectTable
                   prospects={filtered}
                   selectedId={selectedProspect?.id}
-                  onSelectProspect={p => setSelectedProspectId(prev => prev === p.id ? null : p.id)}
+                  selectedIds={selectedIds}
+                  onSelectProspect={handleSelectProspect}
                 />
               )}
             </div>

@@ -1,5 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import {
+  EMAIL_PIPELINE_STAGES,
+  LINKEDIN_CONNECTION_STATUSES,
+  LINKEDIN_DM_STATUSES,
+  PROSPECT_TAGS,
+} from '../utils/constants'
 
 const BATCH_SIZE = 50
 
@@ -18,6 +24,10 @@ function chunk(arr, size) {
   const out = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
   return out
+}
+
+function clampEnum(value, options, fallback) {
+  return options.includes(value) ? value : fallback
 }
 
 export function useImportCommit() {
@@ -98,7 +108,7 @@ export function useImportCommit() {
           .map(r => {
             const id = idBySerial.get(r.serial)
             if (!id) return null
-            return { prospect_id: id, stage: r.email_stage || 'Prospects' }
+            return { prospect_id: id, stage: clampEnum(r.email_stage, EMAIL_PIPELINE_STAGES, 'Prospects') }
           })
           .filter(Boolean)
         if (emailRows.length) {
@@ -113,8 +123,8 @@ export function useImportCommit() {
             if (!id) return null
             return {
               prospect_id: id,
-              connection_status: r.connection_status || 'Pending',
-              dm_status: r.dm_status || 'Not Sent',
+              connection_status: clampEnum(r.connection_status, LINKEDIN_CONNECTION_STATUSES, 'Pending'),
+              dm_status: clampEnum(r.dm_status, LINKEDIN_DM_STATUSES, 'Not Sent'),
               connection_sent_at: toIso(r.connection_sent_at),
               last_action_date: toIso(r.last_action_date),
             }
@@ -129,7 +139,7 @@ export function useImportCommit() {
         const tagRows = group.flatMap(r => {
           const id = idBySerial.get(r.serial)
           if (!id || !r.tags?.length) return []
-          return r.tags.map(tag => ({ prospect_id: id, tag }))
+          return r.tags.filter(tag => PROSPECT_TAGS.includes(tag)).map(tag => ({ prospect_id: id, tag }))
         })
         if (tagRows.length) {
           const { error } = await supabase.from('prospect_tags').insert(tagRows)

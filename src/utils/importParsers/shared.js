@@ -38,11 +38,11 @@ export function pick(row, candidates) {
 }
 
 // Snap a free-text value onto one of the known enum options (case-insensitive).
-export function snapEnum(value, options) {
+export function snapEnum(value, options, fallback = '') {
   const v = (value ?? '').trim()
-  if (!v) return ''
+  if (!v) return fallback
   const hit = options.find(o => o.toLowerCase() === v.toLowerCase())
-  return hit ?? v
+  return hit ?? fallback
 }
 
 export function parseCsv(text) {

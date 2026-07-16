@@ -1,7 +1,7 @@
 import Badge from '../ui/Badge'
 import { formatDate } from '../../utils/formatDate'
 
-export default function ProspectRow({ prospect, isSelected, onClick }) {
+export default function ProspectRow({ prospect, isSelected, isRangeSelected, onClick }) {
   const email = prospect.email_pipeline?.[0]
   const li = prospect.linkedin_pipeline?.[0]
   const tags = prospect.prospect_tags ?? []
@@ -9,9 +9,11 @@ export default function ProspectRow({ prospect, isSelected, onClick }) {
   return (
     <tr
       onClick={onClick}
-      className={`border-b border-[#1a1a1a] cursor-pointer transition-colors ${
+      className={`border-b border-[#1a1a1a] cursor-pointer transition-colors select-none ${
         isSelected
           ? 'bg-orange-500/5 border-l-2 border-l-orange-500'
+          : isRangeSelected
+          ? 'bg-orange-500/[0.03] border-l-2 border-l-orange-500/40'
           : 'hover:bg-[#141414]'
       }`}
     >
