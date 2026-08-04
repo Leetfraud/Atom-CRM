@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import PeriodToggle from './PeriodToggle'
 
-const COLOR = '#d95926'
+const COLOR = '#6fe3b4'
 
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T12:00:00')
@@ -16,14 +16,14 @@ function formatUsd(value) {
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-[#0a0a0a] border border-[#262626] rounded-lg px-4 py-3 shadow-xl min-w-[180px]">
-      <p className="text-white text-xs font-bold mb-2">{formatDate(label)}</p>
+    <div className="bg-card border border-line rounded-2xl px-4 py-3 shadow-xl min-w-[180px]">
+      <p className="font-display text-paper text-xs font-bold mb-2">{formatDate(label)}</p>
       <div className="flex items-center justify-between gap-6">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rotate-45 shrink-0" style={{ backgroundColor: COLOR }} />
-          <span className="text-zinc-400 text-xs">Cumulative Revenue</span>
+          <span className="text-paper-dim text-xs">Cumulative Revenue</span>
         </div>
-        <span className="text-white font-bold text-xs tabular-nums">{formatUsd(payload[0].value)}</span>
+        <span className="font-mono text-paper font-semibold text-xs tabular-nums">{formatUsd(payload[0].value)}</span>
       </div>
     </div>
   )
@@ -41,9 +41,9 @@ export default function GrowthChart({ data }) {
   const view = period === 'week' ? cumulative.slice(-7) : cumulative
 
   return (
-    <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-5">
+    <div className="bg-card border border-line rounded-[26px] p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h3 className="text-white font-semibold text-sm">Revenue Growth</h3>
+        <h3 className="font-display font-bold text-paper text-base">Revenue Growth</h3>
         <PeriodToggle value={period} onChange={setPeriod} />
       </div>
       <ResponsiveContainer width="100%" height={240}>
@@ -54,23 +54,23 @@ export default function GrowthChart({ data }) {
               <stop offset="100%" stopColor={COLOR} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#333333" strokeDasharray="4 4" horizontal={false} />
+          <CartesianGrid stroke="#232325" strokeDasharray="3 5" horizontal={false} />
           <XAxis
             dataKey="date"
             tickFormatter={formatDate}
-            stroke="#333333"
-            tick={{ fill: '#60a5fa', fontSize: 11, fontWeight: 600 }}
+            stroke="#232325"
+            tick={{ fill: '#5c5c60', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
             tickLine={false}
-            axisLine={{ stroke: '#333333' }}
+            axisLine={{ stroke: '#232325' }}
           />
           <YAxis
-            stroke="#333333"
-            tick={{ fill: '#a1a1aa', fontSize: 11 }}
+            stroke="#232325"
+            tick={{ fill: '#5c5c60', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
             tickLine={false}
             axisLine={false}
             tickFormatter={v => `$${v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}`}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#52525b', strokeWidth: 1, strokeDasharray: '4 4' }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#5c5c60', strokeWidth: 1, strokeDasharray: '4 4' }} />
           <Area
             type="monotone"
             dataKey="cumulative_revenue"
@@ -78,7 +78,7 @@ export default function GrowthChart({ data }) {
             strokeWidth={2.5}
             fill="url(#growthFill)"
             dot={false}
-            activeDot={{ r: 5, fill: COLOR, stroke: '#111111', strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: COLOR, stroke: '#0d0d0e', strokeWidth: 2 }}
           />
         </AreaChart>
       </ResponsiveContainer>

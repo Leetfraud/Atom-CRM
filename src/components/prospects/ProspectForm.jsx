@@ -197,7 +197,7 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
       <div>
         <button
           onClick={() => setShowPaste(!showPaste)}
-          className="text-orange-400 text-xs uppercase tracking-widest hover:text-orange-300 transition"
+          className="font-mono text-accent text-[11px] uppercase tracking-wide hover:text-paper transition"
         >
           {showPaste ? '— Hide smart paste' : '+ Smart paste'}
         </button>
@@ -209,7 +209,7 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
               onChange={e => setPasteText(e.target.value)}
               placeholder={`Paste prospect info here — name, email, LinkedIn, company URL, role...\n\nExample:\nJohn Smith\nFounder & CEO\nAcme Inc.\nlinkedin.com/in/johnsmith\nacme.com\njohn@acme.com`}
               rows={7}
-              className="w-full bg-[#1a1a1a] text-white rounded-lg px-4 py-2.5 text-sm border border-[#2a2a2a] focus:outline-none focus:border-orange-500/50 placeholder-zinc-600 resize-none transition"
+              className="w-full bg-card-2 text-paper rounded-xl px-4 py-2.5 text-sm border border-line focus:outline-none focus:border-accent/50 placeholder-fog resize-none transition"
             />
             <Button onClick={handleParse} disabled={!pasteText.trim()} className="self-start">
               Parse into fields
@@ -220,7 +220,7 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
 
       {/* Identity */}
       <div>
-        <p className="text-orange-400 text-xs uppercase tracking-widest mb-3">Identity</p>
+        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Identity</p>
         <div className="grid grid-cols-2 gap-3">
           <Input label="First Name *" value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="John" />
           <Input label="Last Name" value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Smith" />
@@ -232,7 +232,7 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
 
       {/* Links */}
       <div>
-        <p className="text-orange-400 text-xs uppercase tracking-widest mb-3">Links</p>
+        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Links</p>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="john@acme.com" />
           <Input label="LinkedIn URL" value={form.linkedin_url} onChange={e => set('linkedin_url', e.target.value)} placeholder="linkedin.com/in/john" />
@@ -244,7 +244,7 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
 
       {/* Pipeline */}
       <div>
-        <p className="text-orange-400 text-xs uppercase tracking-widest mb-3">Pipeline</p>
+        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Pipeline</p>
         <div className="grid grid-cols-3 gap-3">
           <Dropdown label="Email Stage" value={form.email_stage} onChange={v => set('email_stage', v)} options={EMAIL_PIPELINE_STAGES} />
           <Dropdown label="LI Connection" value={form.connection_status} onChange={v => set('connection_status', v)} options={LINKEDIN_CONNECTION_STATUSES} />
@@ -254,16 +254,16 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
 
       {/* Tags */}
       <div>
-        <p className="text-orange-400 text-xs uppercase tracking-widest mb-3">Tags</p>
+        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
         <div className="flex flex-wrap gap-2">
           {PROSPECT_TAGS.map(tag => (
             <button
               key={tag}
               onClick={() => toggleTag(tag)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition border ${
+              className={`px-3 py-1 rounded-full font-mono text-[11px] transition border ${
                 form.tags.includes(tag)
-                  ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
-                  : 'bg-[#1a1a1a] border-[#2a2a2a] text-zinc-400 hover:border-zinc-500'
+                  ? 'bg-accent-dim border-accent/40 text-accent'
+                  : 'bg-card-2 border-line text-paper-dim hover:border-paper-dim'
               }`}
             >
               {tag}
@@ -274,19 +274,19 @@ export default function ProspectForm({ onSubmit, onCancel, loading, generateSeri
 
       {/* Notes */}
       <div>
-        <p className="text-orange-400 text-xs uppercase tracking-widest mb-3">Notes</p>
+        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Notes</p>
         <textarea
           value={form.notes}
           onChange={e => set('notes', e.target.value)}
           placeholder="Any additional context..."
           rows={3}
-          className="w-full bg-[#1a1a1a] text-white rounded-lg px-4 py-2.5 text-sm border border-[#2a2a2a] focus:outline-none focus:border-orange-500/50 placeholder-zinc-600 resize-none transition"
+          className="w-full bg-card-2 text-paper rounded-xl px-4 py-2.5 text-sm border border-line focus:outline-none focus:border-accent/50 placeholder-fog resize-none transition"
         />
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-[#1f1f1f]">
-        {submitError && <p className="text-red-400 text-xs text-right">{submitError}</p>}
+      <div className="flex flex-col gap-2 pt-2 border-t border-line">
+        {submitError && <p className="text-down text-xs text-right">{submitError}</p>}
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={submitting || !form.first_name}>

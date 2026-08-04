@@ -69,21 +69,24 @@ export default function Import() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex">
-      <Sidebar />
-      <div className="flex-1 ml-56">
-        <Topbar title="Import" />
-        <main className="pt-14 p-6">
+    <div className="min-h-screen bg-ink p-5 md:p-6">
+      <Topbar title="Import" />
+
+      <div className="flex gap-5 items-start">
+        <Sidebar />
+
+        <main className="flex-1 min-w-0">
+          <div className="bg-card border border-line rounded-[26px] p-5">
           {step === 'upload' && (
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-white font-semibold text-lg">Import prospects</h2>
-                <p className="text-zinc-500 text-sm mt-1">
+                <h2 className="font-display font-bold text-paper text-lg">Import prospects</h2>
+                <p className="text-paper-dim text-sm mt-1">
                   Upload the LinkedIn connections CSV and/or the Notion email pipeline export. Nothing is written until you confirm on the review screen.
                 </p>
               </div>
               {parseError && (
-                <p className="text-red-400 text-sm bg-red-950/40 border border-red-900/40 rounded-lg px-4 py-2.5">{parseError}</p>
+                <p className="text-down text-sm bg-down-dim border border-down/30 rounded-xl px-4 py-2.5">{parseError}</p>
               )}
               <ImportUploader onReady={handleReady} />
             </div>
@@ -92,7 +95,7 @@ export default function Import() {
           {step === 'review' && (
             <div className="flex flex-col gap-4">
               {commitError && (
-                <p className="text-red-400 text-sm bg-red-950/40 border border-red-900/40 rounded-lg px-4 py-2.5">
+                <p className="text-down text-sm bg-down-dim border border-down/30 rounded-xl px-4 py-2.5">
                   Import failed: {commitError}
                 </p>
               )}
@@ -111,22 +114,23 @@ export default function Import() {
           )}
 
           {step === 'done' && (
-            <div className="max-w-lg bg-[#111111] border border-[#1f1f1f] rounded-xl p-8 flex flex-col items-center gap-4 text-center">
-              <div className="w-12 h-12 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center text-green-400 text-2xl">✓</div>
+            <div className="max-w-lg bg-card-2 border border-line rounded-[26px] p-8 flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-mint-dim border border-mint/30 flex items-center justify-center text-mint text-2xl">✓</div>
               <div>
-                <h2 className="text-white font-semibold text-lg">Import complete</h2>
-                <p className="text-zinc-400 text-sm mt-1">
+                <h2 className="font-display font-bold text-paper text-lg">Import complete</h2>
+                <p className="text-paper-dim text-sm mt-1">
                   {result?.count} prospect{result?.count === 1 ? '' : 's'} imported successfully.
                 </p>
               </div>
               <button
                 onClick={reset}
-                className="text-orange-400 hover:text-orange-300 text-sm uppercase tracking-widest"
+                className="font-mono text-accent hover:text-paper text-[11px] uppercase tracking-wide"
               >
                 Import another file
               </button>
             </div>
           )}
+          </div>
         </main>
       </div>
     </div>

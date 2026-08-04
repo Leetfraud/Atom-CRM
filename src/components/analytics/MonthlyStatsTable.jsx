@@ -15,7 +15,7 @@ const FIELDS = [
 
 // Removes the native number-input spinner arrows so the cell reads as a plain spreadsheet cell.
 const CELL_CLASS =
-  'w-20 bg-transparent text-white text-sm px-2 py-1 rounded border border-transparent hover:border-[#2a2a2a] focus:border-orange-500/50 focus:bg-[#1a1a1a] focus:outline-none transition text-center ' +
+  'w-20 bg-transparent text-paper text-sm px-2 py-1 rounded-lg border border-transparent hover:border-line focus:border-accent/50 focus:bg-card-2 focus:outline-none transition text-center font-mono ' +
   '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0'
 
 export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, loading, onCellEdit }) {
@@ -61,18 +61,18 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#1f1f1f]">
+    <div className="overflow-x-auto rounded-2xl border border-line">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#1f1f1f]">
+          <tr className="border-b border-line">
             {COLUMNS.map(col => (
-              <th key={col} className="text-left text-xs text-zinc-500 uppercase tracking-widest font-medium px-4 py-3 whitespace-nowrap">
+              <th key={col} className="text-left font-mono text-[10.5px] text-fog uppercase tracking-wide font-medium px-4 py-3 whitespace-nowrap">
                 {col}
               </th>
             ))}
@@ -85,11 +85,11 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
             return (
               <tr
                 key={date}
-                className={`border-b border-[#141414] ${isToday ? 'bg-orange-500/5' : 'hover:bg-[#111111]'}`}
+                className={`border-b border-line/60 ${isToday ? 'bg-mint-dim' : 'hover:bg-card-2'}`}
               >
-                <td className="px-4 py-2 text-zinc-400 text-xs whitespace-nowrap font-medium">
+                <td className="px-4 py-2 text-paper-dim text-xs whitespace-nowrap font-medium">
                   {new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                  {isToday && <span className="ml-2 text-orange-500 text-xs">today</span>}
+                  {isToday && <span className="ml-2 font-mono text-mint text-[9.5px]">today</span>}
                 </td>
                 {FIELDS.map(([field, isDecimal], colIdx) => (
                   <td key={field} className="px-2 py-1">
@@ -115,8 +115,8 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
           })}
 
           {/* Totals row */}
-          <tr className="border-t-2 border-[#2a2a2a] bg-[#111111]">
-            <td className="px-4 py-3 text-orange-400 text-xs font-bold uppercase tracking-widest">
+          <tr className="border-t-2 border-line bg-card-2">
+            <td className="px-4 py-3 text-paper font-mono text-xs font-bold uppercase tracking-wide">
               Total
             </td>
             {[
@@ -129,7 +129,7 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
               `$${(monthlyTotals?.cash_collected_usd ?? 0).toLocaleString()}`,
               `$${(monthlyTotals?.revenue ?? 0).toLocaleString()}`,
             ].map((val, i) => (
-              <td key={i} className="px-4 py-3 text-white font-semibold text-sm text-center">
+              <td key={i} className="px-4 py-3 text-paper font-display font-semibold text-sm text-center">
                 {val}
               </td>
             ))}

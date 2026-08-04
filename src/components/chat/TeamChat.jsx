@@ -56,19 +56,21 @@ export default function TeamChat({ isOpen, onClose }) {
 
       {/* Slide-out panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-80 bg-[#0d0d0d] border-l border-[#1f1f1f] z-40 flex flex-col transform transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-80 bg-card border-l border-line z-40 flex flex-col transform transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Header */}
-        <div className="h-14 border-b border-[#1f1f1f] flex items-center justify-between px-4 shrink-0">
+        <div className="h-14 border-b border-line flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm">💬</span>
-            <span className="text-white font-semibold text-sm">Team Chat</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-paper-dim">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+            </svg>
+            <span className="font-display font-bold text-paper text-sm">Team Chat</span>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-white transition text-lg leading-none"
+            className="text-fog hover:text-paper transition text-lg leading-none"
           >
             ×
           </button>
@@ -77,9 +79,9 @@ export default function TeamChat({ isOpen, onClose }) {
         {/* Message list */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
           {loading ? (
-            <p className="text-zinc-600 text-xs text-center pt-8">Loading…</p>
+            <p className="text-fog text-xs text-center pt-8">Loading…</p>
           ) : messages.length === 0 ? (
-            <p className="text-zinc-600 text-xs text-center pt-8">No messages yet. Say hi!</p>
+            <p className="text-fog text-xs text-center pt-8">No messages yet. Say hi!</p>
           ) : (
             messages.map(msg => {
               const isOwn = msg.sender_id === user?.id
@@ -87,15 +89,15 @@ export default function TeamChat({ isOpen, onClose }) {
                 <div key={msg.id} className={`flex flex-col gap-0.5 ${isOwn ? 'items-end' : 'items-start'}`}>
                   <div className="flex items-baseline gap-1.5">
                     {!isOwn && (
-                      <span className="text-orange-400 text-xs font-medium">{msg.sender_name}</span>
+                      <span className="text-accent text-xs font-medium">{msg.sender_name}</span>
                     )}
-                    <span className="text-zinc-600 text-[10px]">{formatTime(msg.created_at)}</span>
+                    <span className="text-fog text-[10px]">{formatTime(msg.created_at)}</span>
                   </div>
                   <div
-                    className={`max-w-[240px] px-3 py-2 rounded-lg text-sm leading-snug break-words ${
+                    className={`max-w-[240px] px-3 py-2 rounded-2xl text-sm leading-snug break-words ${
                       isOwn
-                        ? 'bg-orange-500/15 text-orange-100 border border-orange-500/20'
-                        : 'bg-[#1a1a1a] text-zinc-200 border border-[#2a2a2a]'
+                        ? 'bg-accent-dim text-paper border border-accent/30'
+                        : 'bg-card-2 text-paper-dim border border-line'
                     }`}
                   >
                     {msg.message}
@@ -108,7 +110,7 @@ export default function TeamChat({ isOpen, onClose }) {
         </div>
 
         {/* Input */}
-        <div className="border-t border-[#1f1f1f] p-3 shrink-0">
+        <div className="border-t border-line p-3 shrink-0">
           <div className="flex gap-2 items-end">
             <textarea
               value={input}
@@ -116,7 +118,7 @@ export default function TeamChat({ isOpen, onClose }) {
               onKeyDown={handleKeyDown}
               placeholder="Message the team…"
               rows={1}
-              className="flex-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 resize-none focus:outline-none focus:border-orange-500/40 transition"
+              className="flex-1 bg-card-2 border border-line rounded-xl px-3 py-2 text-sm text-paper placeholder-fog resize-none focus:outline-none focus:border-accent/40 transition"
               style={{ minHeight: '38px', maxHeight: '100px' }}
               onInput={e => {
                 e.target.style.height = 'auto'
@@ -126,12 +128,12 @@ export default function TeamChat({ isOpen, onClose }) {
             <button
               onClick={handleSend}
               disabled={!input.trim() || sending}
-              className="bg-orange-500 hover:bg-orange-400 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-2 rounded-lg transition shrink-0"
+              className="bg-paper hover:bg-paper/90 disabled:opacity-30 disabled:cursor-not-allowed text-ink font-mono text-[11px] uppercase tracking-wide font-semibold px-3 py-2 rounded-full transition shrink-0"
             >
               Send
             </button>
           </div>
-          <p className="text-zinc-700 text-[10px] mt-1.5">Enter to send · Shift+Enter for new line</p>
+          <p className="text-fog text-[10px] mt-1.5">Enter to send · Shift+Enter for new line</p>
         </div>
       </div>
     </>

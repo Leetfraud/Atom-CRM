@@ -5,7 +5,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   const { user, role, loading } = useAuth()
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-[#0a0a0a] text-white text-sm">
+    <div className="flex items-center justify-center h-screen bg-ink text-paper text-sm font-mono">
       Loading...
     </div>
   )

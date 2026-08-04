@@ -1,12 +1,16 @@
 export default function StatCard({ icon, label, value, sub, accent = false }) {
   return (
-    <div className={`bg-[#111111] border rounded-xl p-5 flex flex-col gap-3 ${accent ? 'border-orange-500/50' : 'border-[#1f1f1f]'}`}>
+    <div className={`bg-card-2 border rounded-2xl p-4 flex flex-col gap-3 ${accent ? 'border-mint/40' : 'border-line'}`}>
       <div className="flex items-center justify-between">
-        <span className="text-zinc-400 text-xs uppercase tracking-widest font-medium">{label}</span>
-        {icon && <span className="text-orange-500 text-lg">{icon}</span>}
+        <span className="font-mono text-[10px] uppercase tracking-wide text-fog">{label}</span>
+        {icon && (
+          <span className="w-7 h-7 rounded-lg bg-ink border border-line flex items-center justify-center text-paper-dim shrink-0">
+            {icon}
+          </span>
+        )}
       </div>
-      <p className="text-white text-3xl font-bold tracking-tight">{value ?? '—'}</p>
-      {sub && <p className="text-zinc-600 text-xs">{sub}</p>}
+      <p className={`font-display font-bold text-2xl tracking-tight ${accent ? 'text-mint' : 'text-paper'}`}>{value ?? '—'}</p>
+      {sub && <p className="font-mono text-[11px] text-fog">{sub}</p>}
     </div>
   )
 }

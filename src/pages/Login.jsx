@@ -26,46 +26,45 @@ export default function Login() {
   }
 
   return (
-    <div className="flex items-center justify-center h-screen bg-[#0a0a0a]">
-      <div className="bg-[#111111] p-8 rounded-xl w-full max-w-sm border border-[#1f1f1f]">
-        <div className="mb-6">
-          <span className="text-orange-500 font-bold text-xl tracking-tight">ATOM</span>
-          <span className="text-zinc-600 text-xs block uppercase tracking-widest mt-0.5">CRM</span>
+    <div className="flex items-center justify-center h-screen bg-ink">
+      <div className="bg-card p-8 rounded-[26px] w-full max-w-sm border border-line">
+        <div className="mb-6 font-display font-bold text-2xl tracking-tight text-paper">
+          ATOM<span className="text-fog">.</span>
         </div>
-        <p className="text-zinc-400 text-sm mb-6">Sign in to your account</p>
+        <p className="text-paper-dim text-sm mb-6">Sign in to your account</p>
         <div className="flex flex-col gap-4">
           <div>
-            <label className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5 block">Email</label>
+            <label className="font-mono text-[10px] uppercase tracking-wide text-fog mb-1.5 block">Email</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-[#1a1a1a] text-white rounded-lg px-4 py-2.5 text-sm border border-[#2a2a2a] focus:outline-none focus:border-orange-500/50 placeholder-zinc-600 transition"
+              className="w-full bg-card-2 text-paper rounded-xl px-4 py-2.5 text-sm border border-line focus:outline-none focus:border-accent/50 placeholder-fog transition"
               placeholder="you@atom.com"
             />
           </div>
           <div>
-            <label className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5 block">Password</label>
+            <label className="font-mono text-[10px] uppercase tracking-wide text-fog mb-1.5 block">Password</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              className="w-full bg-[#1a1a1a] text-white rounded-lg px-4 py-2.5 text-sm border border-[#2a2a2a] focus:outline-none focus:border-orange-500/50 placeholder-zinc-600 transition"
+              className="w-full bg-card-2 text-paper rounded-xl px-4 py-2.5 text-sm border border-line focus:outline-none focus:border-accent/50 placeholder-fog transition"
               placeholder="••••••••"
             />
           </div>
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-down text-xs">{error}</p>}
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg py-2.5 text-sm transition disabled:opacity-50 mt-1"
+            className="w-full bg-paper hover:bg-paper/90 text-ink font-display font-bold rounded-full py-2.5 text-sm transition disabled:opacity-50 mt-1"
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
-          <p className="text-zinc-500 text-xs text-center mt-1">
+          <p className="text-fog text-xs text-center mt-1">
             Don't have an account?{' '}
-            <Link to="/register" className="text-orange-400 hover:text-orange-300 transition">
+            <Link to="/register" className="text-accent hover:text-paper transition">
               Create one
             </Link>
           </p>

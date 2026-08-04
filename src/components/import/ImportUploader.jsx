@@ -147,9 +147,9 @@ export default function ImportUploader({ onReady, parsing }) {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       {/* LinkedIn */}
-      <section className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-5">
-        <p className="text-orange-400 text-xs uppercase tracking-widest mb-1">LinkedIn Connections</p>
-        <p className="text-zinc-500 text-xs mb-4">A single CSV exported from the LinkedIn tracker.</p>
+      <section className="bg-card-2 border border-line rounded-2xl p-5">
+        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-1">LinkedIn Connections</p>
+        <p className="text-fog text-xs mb-4">A single CSV exported from the LinkedIn tracker.</p>
         <FileField
           id="li-csv"
           accept=".csv"
@@ -161,9 +161,9 @@ export default function ImportUploader({ onReady, parsing }) {
       </section>
 
       {/* Email */}
-      <section className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-5">
-        <p className="text-orange-400 text-xs uppercase tracking-widest mb-1">Email Pipeline</p>
-        <p className="text-zinc-500 text-xs mb-4">
+      <section className="bg-card-2 border border-line rounded-2xl p-5">
+        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-1">Email Pipeline</p>
+        <p className="text-fog text-xs mb-4">
           Notion “Export → Markdown &amp; CSV” with page content. Drop the zip, or pick the CSV + the folder of .md files.
         </p>
 
@@ -178,9 +178,9 @@ export default function ImportUploader({ onReady, parsing }) {
           />
 
           <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-[#1f1f1f]" />
-            <span className="text-zinc-600 text-xs uppercase tracking-widest">or</span>
-            <div className="h-px flex-1 bg-[#1f1f1f]" />
+            <div className="h-px flex-1 bg-line" />
+            <span className="font-mono text-fog text-[10px] uppercase tracking-wide">or</span>
+            <div className="h-px flex-1 bg-line" />
           </div>
 
           <FileField
@@ -203,13 +203,13 @@ export default function ImportUploader({ onReady, parsing }) {
         </div>
       </section>
 
-      {error && <p className="text-red-400 text-xs">{error}</p>}
+      {error && <p className="text-down text-xs">{error}</p>}
 
       <div className="flex items-center gap-3">
         <Button onClick={handleContinue} disabled={!canContinue || busy || parsing}>
           {parsing ? 'Parsing…' : 'Continue to review'}
         </Button>
-        <p className="text-zinc-600 text-xs">Provide at least one source to continue.</p>
+        <p className="text-fog text-xs">Provide at least one source to continue.</p>
       </div>
     </div>
   )
@@ -218,10 +218,10 @@ export default function ImportUploader({ onReady, parsing }) {
 function FileField({ id, accept, onChange, label, active, webkitdirectory, onClear }) {
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm transition ${
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition ${
         active
-          ? 'border-orange-500/40 bg-orange-500/5 text-orange-300'
-          : 'border-[#2a2a2a] bg-[#1a1a1a] text-zinc-400 hover:border-zinc-500'
+          ? 'border-accent/40 bg-accent-dim text-accent'
+          : 'border-line bg-card text-paper-dim hover:border-paper-dim'
       }`}
     >
       <label htmlFor={id} className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
@@ -241,7 +241,7 @@ function FileField({ id, accept, onChange, label, active, webkitdirectory, onCle
           type="button"
           onClick={onClear}
           title="Clear"
-          className="shrink-0 text-zinc-500 hover:text-red-400 transition text-base leading-none px-1"
+          className="shrink-0 text-fog hover:text-down transition text-base leading-none px-1"
         >
           ✕
         </button>
