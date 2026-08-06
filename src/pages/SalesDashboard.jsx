@@ -196,6 +196,7 @@ export default function SalesDashboard() {
       {/* Side Panel */}
       {selectedProspect && (
         <ProspectModal
+          key={selectedProspect.id}
           prospect={selectedProspect}
           onClose={() => setSelectedProspectId(null)}
           updateProspect={updateProspect}
