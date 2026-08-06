@@ -128,7 +128,7 @@ function parseSmartPaste(text) {
   return result
 }
 
-export default function ProspectForm({ onSubmit, onCancel, loading, generateSerial }) {
+export default function ProspectForm({ onSubmit, onCancel, generateSerial }) {
   const [form, setForm] = useState(emptyForm)
   const [pasteText, setPasteText] = useState('')
   const [showPaste, setShowPaste] = useState(false)

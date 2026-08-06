@@ -2,10 +2,11 @@ import { useEffect } from 'react'
 
 export default function Modal({ isOpen, onClose, title, children, width = 'max-w-2xl' }) {
   useEffect(() => {
+    if (!isOpen) return
     const handler = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 

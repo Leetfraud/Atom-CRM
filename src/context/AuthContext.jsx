@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
   const [displayName, setDisplayName] = useState(null)
+  const [roleError, setRoleError] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -21,6 +22,7 @@ export function AuthProvider({ children }) {
       if (session?.user) fetchRole(session.user)
       else {
         setRole(null)
+        setRoleError(null)
         setLoading(false)
       }
     })
@@ -29,24 +31,40 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function fetchRole(authUser) {
-    const { data } = await supabase
+    setRoleError(null)
+
+    const { data, error } = await supabase
       .from('profiles')
       .select('role, full_name')
       .eq('id', authUser.id)
-      .single()
+      .maybeSingle()
+
+    // Distinguish "no row yet" from "the request failed". Defaulting a failed
+    // lookup to 'sales' silently demotes execs and admins, so surface it
+    // instead and leave role null.
+    if (error) {
+      setRoleError(error.message)
+      setLoading(false)
+      return
+    }
 
     // First sign-in after email confirmation: no profiles row exists yet
     // (signUp() can't insert one itself since it runs unauthenticated until
     // the user confirms). Create it now from the metadata stashed at signup.
     if (!data) {
       const meta = authUser.user_metadata ?? {}
-      const { data: created } = await supabase
+      const { data: created, error: insertError } = await supabase
         .from('profiles')
         .insert({ id: authUser.id, full_name: meta.full_name ?? null, role: meta.role ?? 'sales' })
         .select('role, full_name')
         .single()
-      setRole(created?.role ?? 'sales')
-      setDisplayName(created?.full_name ?? null)
+      if (insertError) {
+        setRoleError(insertError.message)
+        setLoading(false)
+        return
+      }
+      setRole(created.role ?? 'sales')
+      setDisplayName(created.full_name ?? null)
       setLoading(false)
       return
     }
@@ -81,7 +99,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, role, displayName, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, role, roleError, displayName, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   )

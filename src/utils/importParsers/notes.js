@@ -21,14 +21,8 @@ function summarizeChecklist(lines) {
   return `Checklist: ${checked}/${checklistLines.length} checked${missingStr}`
 }
 
-// A line is a "secondary contact" line if it has a role-like label followed by
-// a value that carries an email or LinkedIn URL. Shared by buildNotes (to skip
-// them) and extractSecondaryContactText (to collect them) so they never
-// disagree or duplicate.
-// Labels that belong to the PRIMARY contact's own property block — a line
-// starting with one of these is never a "secondary person", it's the main
-
-// Labels that belong to the primary contact's own property block.
+// Labels that belong to the primary contact's own property block — a line
+// starting with one of these is never a "secondary person", it's the main one.
 const PRIMARY_FIELD_LABELS = new Set([
   'email', 'linkedin', 'linkedin request', 'gamma', 'youtube', 'website',
   'twitter', 'twt', 'instagram', 'status', 'label', 'labels', 'assign',
@@ -37,8 +31,9 @@ const PRIMARY_FIELD_LABELS = new Set([
 ])
 
 
-// A line is a secondary-contact line if it has a role-like label followed by
-// a value carrying an email or LinkedIn URL.
+// A line is a secondary-contact line if it has a role-like label followed by a
+// value carrying an email or LinkedIn URL. Shared by buildNotes (to skip them)
+// and extractSecondaryContactText (to collect them) so the two never disagree.
 function isSecondaryContactLine(cleanLine) {
   const m = cleanLine.match(/^([^:：]{2,40})[:：]\s*(.+)$/)
   if (!m) return false
@@ -142,8 +137,7 @@ export function buildNotes(body, secondaryNames, secondaryContactText) {
   return flattenMarkdownLinks(joined)
 }
 
-// Flatten [text](url) → text and [text](mailto:x) → text, and strip stray
-
+// Collect the secondary-contact lines out of a body as a single text block.
 export function extractSecondaryContactText(body, extraLines) {
   const secondaryLines = [...extraLines]
 

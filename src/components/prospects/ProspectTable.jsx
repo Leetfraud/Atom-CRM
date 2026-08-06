@@ -1,6 +1,6 @@
 import ProspectRow from './ProspectRow'
 
-export default function ProspectTable({ prospects, onSelectProspect, selectedId, selectedIds = new Set() }) {
+export default function ProspectTable({ prospects, onSelectProspect, selectedId }) {
   if (prospects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -26,13 +26,12 @@ export default function ProspectTable({ prospects, onSelectProspect, selectedId,
           </tr>
         </thead>
         <tbody>
-          {prospects.map((prospect, index) => (
+          {prospects.map(prospect => (
             <ProspectRow
               key={prospect.id}
               prospect={prospect}
               isSelected={selectedId === prospect.id}
-              isRangeSelected={selectedIds.has(prospect.id)}
-              onClick={(e) => onSelectProspect(prospect, index, e.shiftKey)}
+              onClick={() => onSelectProspect(prospect)}
             />
           ))}
         </tbody>

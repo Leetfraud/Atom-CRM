@@ -51,7 +51,3 @@ export const PROSPECT_TAGS = [
   'Qualified',
   'Cofounder',
 ]
-
-export const EMAIL_SEQUENCE_STAGES = ['FC', 'F1', 'F2', 'F3', 'F4']
-
-export const INBOXES = ['IB1', 'IB2', 'IB3', 'IB4', 'IB5']

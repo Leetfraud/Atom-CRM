@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { HOME_FOR_ROLE } from '../components/layout/ProtectedRoute'
 
 export default function Login() {
   const { signIn, role } = useAuth()
@@ -12,7 +13,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!role) return
-    navigate(role === 'exec' ? '/analytics' : '/sales')
+    navigate(HOME_FOR_ROLE[role] ?? '/sales')
   }, [role, navigate])
 
   async function handleLogin() {

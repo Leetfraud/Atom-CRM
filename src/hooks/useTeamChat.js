@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -7,8 +7,6 @@ export function useTeamChat() {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  // Track message ids we sent optimistically so we don't duplicate on realtime event
-  const sentIds = useRef(new Set())
 
   useEffect(() => {
     fetchMessages()
@@ -20,12 +18,12 @@ export function useTeamChat() {
         { event: 'INSERT', schema: 'public', table: 'team_messages' },
         payload => {
           const msg = payload.new
-          // Skip if we already added this optimistically
-          if (sentIds.current.has(msg.id)) {
-            sentIds.current.delete(msg.id)
-            return
-          }
-          setMessages(prev => [...prev, msg])
+          // Dedupe on id rather than tracking what we sent: the broadcast for
+          // our own message can arrive before the insert call returns, so
+          // there is no moment at which we could pre-register the id.
+          setMessages(prev => (
+            prev.some(m => m.id === msg.id) ? prev : [...prev, msg]
+          ))
         }
       )
       .subscribe()
@@ -79,9 +77,12 @@ export function useTeamChat() {
       return { error: error.message }
     }
 
-    // Replace temp with real id; register real id so realtime event is skipped
-    sentIds.current.add(data.id)
-    setMessages(prev => prev.map(m => m.id === tempId ? data : m))
+    // Swap the temp row for the real one, unless the realtime broadcast already
+    // delivered it — in which case just drop the temp and keep its position.
+    setMessages(prev => {
+      const withoutTemp = prev.filter(m => m.id !== tempId)
+      return withoutTemp.some(m => m.id === data.id) ? withoutTemp : [...withoutTemp, data]
+    })
     return { error: null }
   }
 

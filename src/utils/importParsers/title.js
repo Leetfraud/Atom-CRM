@@ -106,9 +106,6 @@ export function titleFromFilename(filename) {
 
 // The real Notion title lives in the first "# heading" line of the body, which
 // preserves punctuation (colons, etc.) that the FILENAME strips. Prefer the
-
-// The real Notion title lives in the first "# heading" line of the body, which
-// preserves punctuation (colons, etc.) that the FILENAME strips. Prefer the
 // heading; fall back to the filename-derived title if there is no heading.
 export function titleFromBody(body, fallback) {
   const m = (body ?? '').match(/^\s*#\s+(.+)$/m)

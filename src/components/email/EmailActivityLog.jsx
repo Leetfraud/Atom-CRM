@@ -1,1 +1,0 @@
-export default function EmailActivityLog() { return null }

@@ -186,9 +186,6 @@ export function parseEmailExport(csvText, mdFiles) {
   return contacts
 }
 
-// Collect lines from the body that look like secondary-contact mentions
-// (role: name — email/linkedin pattern) and return them as a text block.
-
 // --- Matching + review row construction ---
 
 function blankRow() {
@@ -251,8 +248,6 @@ function mergeRow(li, em) {
   row.needsName = em?.needsName ?? false
   return row
 }
-
-// Match LinkedIn rows against email contacts by exact normalized name.
 
 // Match LinkedIn rows against email contacts by exact normalized name.
 // Only email contacts with _linkedinRequest: true are eligible for matching.

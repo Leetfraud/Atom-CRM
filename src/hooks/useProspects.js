@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useProspects(searchQuery = '') {
+// Free-text search scans these alongside the combined first/last name.
+const SEARCH_FIELDS = [
+  'email', 'company', 'role_title', 'linkedin_url',
+  'youtube_url', 'gamma_doc_url', 'company_url', 'place', 'notes',
+]
+
+export function useProspects() {
   const [prospects, setProspects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -13,7 +19,7 @@ export function useProspects(searchQuery = '') {
   async function fetchProspects(silent = false) {
     if (!silent) setLoading(true)
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('prospects')
         .select(`
           *,
@@ -22,10 +28,6 @@ export function useProspects(searchQuery = '') {
           prospect_tags(tag)
         `)
         .order('created_at', { ascending: false })
-
-    
-
-      const { data, error } = await query
       if (error) throw error
       setProspects(data)
     } catch (err) {
@@ -118,21 +120,13 @@ export function useProspects(searchQuery = '') {
 
 
   function filterProspects(query) {
-  if (!query || !query.trim()) return prospects
-  const q = query.toLowerCase().trim()
-  return prospects.filter(p =>
-    `${p.first_name ?? ''} ${p.last_name ?? ''}`.toLowerCase().includes(q) ||
-    (p.email ?? '').toLowerCase().includes(q) ||
-    (p.company ?? '').toLowerCase().includes(q) ||
-    (p.role_title ?? '').toLowerCase().includes(q) ||
-    (p.linkedin_url ?? '').toLowerCase().includes(q) ||
-    (p.youtube_url ?? '').toLowerCase().includes(q) ||
-    (p.gamma_doc_url ?? '').toLowerCase().includes(q) ||
-    (p.company_url ?? '').toLowerCase().includes(q) ||
-    (p.place ?? '').toLowerCase().includes(q) ||
-    (p.notes ?? '').toLowerCase().includes(q)
-  )
-}
+    if (!query || !query.trim()) return prospects
+    const q = query.toLowerCase().trim()
+    return prospects.filter(p =>
+      `${p.first_name ?? ''} ${p.last_name ?? ''}`.toLowerCase().includes(q) ||
+      SEARCH_FIELDS.some(f => (p[f] ?? '').toLowerCase().includes(q))
+    )
+  }
 
   function updateProspectLocal(id, updater) {
     setProspects(prev => prev.map(p =>

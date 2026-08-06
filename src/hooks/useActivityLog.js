@@ -31,6 +31,4 @@ export function useActivityLog(prospectId) {
   }
 
   return { logs, loading, addLog, refetch: fetchLogs }
-
-  
 }

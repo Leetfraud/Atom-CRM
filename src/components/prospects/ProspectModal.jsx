@@ -3,6 +3,7 @@ import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Dropdown from '../ui/Dropdown'
 import Input from '../ui/Input'
+import { supabase } from '../../lib/supabase'
 import { formatDate } from '../../utils/formatDate'
 import { useEmailActivity } from '../../hooks/useEmailActivity'
 import { useLinkedinActivity } from '../../hooks/useLinkedinActivity'
@@ -22,10 +23,10 @@ const linkIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 15l6-6" /><path d="M8 10a3 3 0 010-4l2-2a3 3 0 014 4" /><path d="M16 14a3 3 0 010 4l-2 2a3 3 0 01-4-4" /></svg>
 )
 
-export default function ProspectModal({ prospect, onClose, updateProspect, updateProspectLocal, deleteProspect  }) {
-const { logs, loading: logsLoading, addLog } = useActivityLog(prospect.id)
-const { updateEmailPipeline } = useEmailActivity(addLog)
-const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
+export default function ProspectModal({ prospect, onClose, updateProspect, updateProspectLocal, deleteProspect, refetch }) {
+  const { logs, loading: logsLoading, addLog } = useActivityLog(prospect.id)
+  const { updateEmailPipeline } = useEmailActivity(addLog)
+  const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -51,8 +52,6 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
   const [dmError, setDmError] = useState(null)
   const [repliedError, setRepliedError] = useState(null)
   const [saveError, setSaveError] = useState(null)
-
-  if (!prospect) return null
 
   const email = prospect.email_pipeline?.[0]
   const li = prospect.linkedin_pipeline?.[0]
@@ -92,8 +91,6 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
   async function handleSaveEdit() {
     setSaving(true)
     setSaveError(null)
-    const previous = prospect
-    const previousTags = tags
 
     updateProspectLocal(prospect.id, p => ({
       ...p,
@@ -101,24 +98,33 @@ const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
       prospect_tags: editTags.map(tag => ({ tag })),
     }))
 
-    const { error: updateError } = await updateProspect(prospect.id, editForm)
+    // Tags go first: updateProspect() refetches on success, so writing them
+    // afterwards would leave the panel showing the pre-edit tags until the
+    // next unrelated fetch.
+    let error = null
+    const { error: delError } = await supabase
+      .from('prospect_tags')
+      .delete()
+      .eq('prospect_id', prospect.id)
+    error = delError?.message ?? null
 
-    let tagsError = null
-    if (!updateError) {
-      const { supabase } = await import('../../lib/supabase')
-      await supabase.from('prospect_tags').delete().eq('prospect_id', prospect.id)
-      if (editTags.length > 0) {
-        const { error } = await supabase.from('prospect_tags').insert(
-          editTags.map(tag => ({ prospect_id: prospect.id, tag }))
-        )
-        tagsError = error?.message ?? null
-      }
+    if (!error && editTags.length > 0) {
+      const { error: insError } = await supabase.from('prospect_tags').insert(
+        editTags.map(tag => ({ prospect_id: prospect.id, tag }))
+      )
+      error = insError?.message ?? null
     }
 
-    const error = updateError || tagsError
+    if (!error) {
+      const { error: updateError } = await updateProspect(prospect.id, editForm)
+      error = updateError ?? null
+    }
+
     if (error) {
-      updateProspectLocal(prospect.id, () => ({ ...previous, prospect_tags: previousTags.map(tag => ({ tag })) }))
+      // Partial writes are possible (tags committed, prospect row not), so
+      // resync from the server rather than replaying a guessed previous state.
       setSaveError(error)
+      await refetch()
     } else {
       setEditing(false)
     }

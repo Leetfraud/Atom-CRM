@@ -41,8 +41,6 @@ const stageBucket = {
   'Needs New Script': 'down',
   'Edits': 'accent',
   'No Results Available': 'fog',
-  'CA Student': 'fog',
-  'Usama': 'fog',
   'Without Loom': 'fog',
   'D1': 'fog',
   'Discussion': 'accent',

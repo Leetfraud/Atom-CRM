@@ -20,11 +20,14 @@ export function useDailyStats(month = null) {
         .order('date', { ascending: true })
 
       if (month) {
-        // month format: '2026-06'
-        const start = `${month}-01`
-        const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 0)
-          .toISOString().split('T')[0]
-        query = query.gte('date', start).lte('date', end)
+        // month format: '2026-06'. Compute the range as plain strings — going
+        // through Date() mixes UTC parsing with local getters and drops the
+        // last day of the month for anyone not on UTC.
+        const [year, mon] = month.split('-').map(Number)
+        const lastDay = new Date(Date.UTC(year, mon, 0)).getUTCDate()
+        query = query
+          .gte('date', `${month}-01`)
+          .lte('date', `${month}-${String(lastDay).padStart(2, '0')}`)
       }
 
       const { data, error } = await query
@@ -49,8 +52,6 @@ export function useDailyStats(month = null) {
       closes: acc.closes + (row.closes || 0),
       cash_collected_usd: acc.cash_collected_usd + (row.cash_collected_usd || 0),
       revenue: acc.revenue + (row.revenue || 0),
-      reply_rate: 0, // computed below
-      close_rate: 0,
     }), {
       emails_sent: 0, replies: 0, linkedin_dms: 0,
       docs_opened: 0, calls_booked: 0, closes: 0,

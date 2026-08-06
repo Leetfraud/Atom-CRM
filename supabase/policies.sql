@@ -37,6 +37,22 @@ create policy "authenticated_all_prospect_activity_log" on prospect_activity_log
 create policy "authenticated_all_daily_stats" on daily_stats
   for all to authenticated using (true) with check (true);
 
+-- team_messages backs the shared chat panel (useTeamChat.js): every
+-- authenticated user reads the whole thread and appends to it. Inserts are
+-- constrained to the sender's own id so a client can't post as someone else;
+-- there is no update/delete policy because the UI offers neither.
+-- drop policy if exists "authenticated_select_team_messages" on team_messages;
+create policy "authenticated_select_team_messages" on team_messages
+  for select to authenticated using (true);
+
+-- drop policy if exists "self_insert_team_messages" on team_messages;
+create policy "self_insert_team_messages" on team_messages
+  for insert to authenticated with check (auth.uid() = sender_id);
+
+-- The chat also subscribes to INSERT events, which requires the table to be in
+-- the realtime publication. Safe to skip if it's already there.
+-- alter publication supabase_realtime add table team_messages;
+
 -- profiles is scoped to the owning row (not the coarse "authenticated_all"
 -- stance above) because profiles.role gates page access via ProtectedRoute.
 -- Self-registration (Register.jsx) inserts a row with id = auth.uid(), and

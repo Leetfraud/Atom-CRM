@@ -33,58 +33,5 @@ export function useLinkedinActivity(addLog) {
     }
   }
 
-  async function markConnected(prospectId) {
-    return updateLinkedinPipeline(prospectId, {
-      connection_status: 'Connected',
-      connection_accepted_at: new Date().toISOString()
-    })
-  }
-
-  async function logMessage(prospectId) {
-    return updateLinkedinPipeline(prospectId, {
-      dm_status: 'Message Sent',
-      message_date: new Date().toISOString()
-    })
-  }
-
-  async function logFollowUp(prospectId, currentFollowUps) {
-    const next = currentFollowUps + 1
-    return updateLinkedinPipeline(prospectId, {
-      follow_ups_sent: next,
-      dm_status: `Follow-up ${next}`
-    })
-  }
-
-  async function markResponded(prospectId, dmStatus) {
-    return updateLinkedinPipeline(prospectId, {
-      responded: true,
-      dm_status: dmStatus
-    })
-  }
-
-  async function markCallBooked(prospectId) {
-    return updateLinkedinPipeline(prospectId, {
-      call_booked: true,
-      dm_status: 'Call Booked'
-    })
-  }
-
-  async function markOnboarded(prospectId) {
-    return updateLinkedinPipeline(prospectId, {
-      onboarded: true,
-      dm_status: 'Converted - Closed'
-    })
-  }
-
-  return {
-    loading,
-    error,
-    updateLinkedinPipeline,
-    markConnected,
-    logMessage,
-    logFollowUp,
-    markResponded,
-    markCallBooked,
-    markOnboarded
-  }
+  return { loading, error, updateLinkedinPipeline }
 }

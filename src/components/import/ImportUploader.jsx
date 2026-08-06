@@ -34,7 +34,7 @@ async function collectZipEntries(zip, depth = 0) {
 // Reads the raw files the user provides and hands the extracted text back up.
 // LinkedIn is a single CSV. The email export is either a .zip (CSV + a folder of
 // .md files) or the same two pieces picked separately.
-export default function ImportUploader({ onReady, parsing }) {
+export default function ImportUploader({ onReady }) {
   const [linkedinCsv, setLinkedinCsv] = useState(null)     // { name, text }
   const [emailCsv, setEmailCsv] = useState(null)           // { name, text }
   const [emailMd, setEmailMd] = useState([])               // [{ name, content }]
@@ -206,8 +206,8 @@ export default function ImportUploader({ onReady, parsing }) {
       {error && <p className="text-down text-xs">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <Button onClick={handleContinue} disabled={!canContinue || busy || parsing}>
-          {parsing ? 'Parsing…' : 'Continue to review'}
+        <Button onClick={handleContinue} disabled={!canContinue || busy}>
+          Continue to review
         </Button>
         <p className="text-fog text-xs">Provide at least one source to continue.</p>
       </div>
