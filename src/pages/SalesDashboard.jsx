@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import Topbar from '../components/layout/Topbar'
 import ProspectTable from '../components/prospects/ProspectTable'
 import ProspectModal from '../components/prospects/ProspectModal'
 import ProspectNotesPanel from '../components/prospects/ProspectNotesPanel'
 import ProspectForm from '../components/prospects/ProspectForm'
+import BulkActionBar from '../components/prospects/BulkActionBar'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Dropdown from '../components/ui/Dropdown'
 import StatCard from '../components/ui/StatCard'
 import { useProspects } from '../hooks/useProspects'
-import { EMAIL_PIPELINE_STAGES, LINKEDIN_DM_STATUSES } from '../utils/constants'
+import { useBulkActions } from '../hooks/useBulkActions'
+import { EMAIL_PIPELINE_STAGES, LINKEDIN_DM_STATUSES, PROSPECT_TAGS } from '../utils/constants'
 
 const icons = {
   people: (
@@ -39,7 +41,9 @@ export default function SalesDashboard() {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [lastSelectedIndex, setLastSelectedIndex] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [menuPos, setMenuPos] = useState(null)
   const { prospects, loading, filterProspects, addProspect, refetch, generateSerial, updateProspect, updateProspectLocal, deleteProspect } = useProspects()
+  const { applying, error: bulkError, setStage, setDmStatus, addTag, removeTag } = useBulkActions()
   const [pipelineMode, setPipelineMode] = useState('email') // 'email' | 'linkedin'
 
   const selectedProspect = prospects.find(p => p.id === selectedProspectId) ?? null
@@ -83,6 +87,54 @@ export default function SalesDashboard() {
       setSelectedProspectId(prev => prev === prospect.id ? null : prospect.id)
       setLastSelectedIndex(index)
     }
+  }
+
+  function handleContextMenu(e, prospect, index) {
+    e.preventDefault()
+    // right-clicking a row outside the current selection selects just that row
+    if (!selectedIds.has(prospect.id)) {
+      setSelectedIds(new Set([prospect.id]))
+      setLastSelectedIndex(index)
+    }
+    setMenuPos({ x: e.clientX, y: e.clientY })
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+    setLastSelectedIndex(null)
+    setMenuPos(null)
+  }
+
+  // The bulk status control drives whichever pipeline the table is showing.
+  const stageOptions = pipelineMode === 'email' ? EMAIL_PIPELINE_STAGES : LINKEDIN_DM_STATUSES
+
+  // Per tag: does every selected prospect carry it, only some, or none?
+  const tagStates = useMemo(() => {
+    const selected = prospects.filter(p => selectedIds.has(p.id))
+    const counts = new Map()
+    for (const p of selected) {
+      for (const { tag } of p.prospect_tags ?? []) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+    return Object.fromEntries(PROSPECT_TAGS.map(tag => {
+      const n = counts.get(tag) ?? 0
+      return [tag, n === 0 ? 'none' : n === selected.length ? 'all' : 'some']
+    }))
+  }, [prospects, selectedIds])
+
+  async function handleBulkStatus(value) {
+    const ids = [...selectedIds]
+    const { error } = pipelineMode === 'email'
+      ? await setStage(ids, value)
+      : await setDmStatus(ids, value)
+    if (!error) await refetch()
+  }
+
+  async function handleToggleTag(tag, nextChecked) {
+    const ids = [...selectedIds]
+    const { error } = nextChecked ? await addTag(ids, tag) : await removeTag(ids, tag)
+    if (!error) await refetch()
   }
 
   async function handleAddProspect(data) {
@@ -184,11 +236,29 @@ export default function SalesDashboard() {
                 selectedId={selectedProspect?.id}
                 selectedIds={selectedIds}
                 onSelectProspect={handleSelectProspect}
+                onContextMenuProspect={handleContextMenu}
               />
             )}
           </div>
         </main>
       </div>
+
+      {/* Bulk actions on the current selection */}
+      {menuPos && selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          pipelineMode={pipelineMode}
+          stageOptions={stageOptions}
+          tagOptions={PROSPECT_TAGS}
+          tagStates={tagStates}
+          onSetStatus={handleBulkStatus}
+          onToggleTag={handleToggleTag}
+          onClear={clearSelection}
+          applying={applying}
+          position={menuPos}
+          error={bulkError}
+        />
+      )}
 
       {/* Notes Panel */}
       {selectedProspect && <ProspectNotesPanel prospect={selectedProspect} />}

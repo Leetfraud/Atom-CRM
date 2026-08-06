@@ -1,6 +1,6 @@
 import ProspectRow from './ProspectRow'
 
-export default function ProspectTable({ prospects, onSelectProspect, selectedId, selectedIds = new Set() }) {
+export default function ProspectTable({ prospects, onSelectProspect, onContextMenuProspect = () => {}, selectedId, selectedIds = new Set() }) {
   if (prospects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -33,6 +33,7 @@ export default function ProspectTable({ prospects, onSelectProspect, selectedId,
               isSelected={selectedId === prospect.id}
               isRangeSelected={selectedIds.has(prospect.id)}
               onClick={(e) => onSelectProspect(prospect, index, e.shiftKey)}
+              onContextMenu={(e) => onContextMenuProspect(e, prospect, index)}
             />
           ))}
         </tbody>
