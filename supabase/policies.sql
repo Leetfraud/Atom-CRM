@@ -29,6 +29,18 @@ create policy "authenticated_all_linkedin_pipeline" on linkedin_pipeline
 create policy "authenticated_all_prospect_tags" on prospect_tags
   for all to authenticated using (true) with check (true);
 
+-- Bulk tag-add (useBulkActions.js) upserts with ON CONFLICT DO NOTHING, which
+-- needs a unique index on (prospect_id, tag) to resolve in one round trip. The
+-- hook falls back to a read-then-insert when the index is missing, so this is
+-- an optimisation rather than a requirement.
+--
+-- Check for existing duplicates before creating it - the index build fails if
+-- any exist:
+--   select prospect_id, tag, count(*) from prospect_tags
+--   group by prospect_id, tag having count(*) > 1;
+-- create unique index if not exists prospect_tags_prospect_id_tag_key
+--   on prospect_tags (prospect_id, tag);
+
 -- drop policy if exists "authenticated_all_prospect_activity_log" on prospect_activity_log;
 create policy "authenticated_all_prospect_activity_log" on prospect_activity_log
   for all to authenticated using (true) with check (true);
