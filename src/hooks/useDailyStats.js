@@ -1,5 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+
+const EMPTY_TOTALS = {
+  emails_sent: 0, replies: 0, linkedin_dms: 0,
+  docs_opened: 0, calls_booked: 0, closes: 0,
+  cash_collected_usd: 0, revenue: 0
+}
+
+function computeTotals(data) {
+  return data.reduce((acc, row) => ({
+    emails_sent: acc.emails_sent + (row.emails_sent || 0),
+    replies: acc.replies + (row.replies || 0),
+    linkedin_dms: acc.linkedin_dms + (row.linkedin_dms || 0),
+    docs_opened: acc.docs_opened + (row.docs_opened || 0),
+    calls_booked: acc.calls_booked + (row.calls_booked || 0),
+    closes: acc.closes + (row.closes || 0),
+    cash_collected_usd: acc.cash_collected_usd + (row.cash_collected_usd || 0),
+    revenue: acc.revenue + (row.revenue || 0),
+  }), EMPTY_TOTALS)
+}
+
+// Returns a new row list with `updates` merged into the row for `date`.
+function mergeRow(rows, date, updates) {
+  const idx = rows.findIndex(r => r.date === date)
+  if (idx === -1) {
+    return [...rows, { date, ...updates }].sort((a, b) => a.date.localeCompare(b.date))
+  }
+  const next = rows.slice()
+  next[idx] = { ...next[idx], ...updates }
+  return next
+}
 
 export function useDailyStats(month = null) {
   const [dailyStats, setDailyStats] = useState([])
@@ -7,9 +37,19 @@ export function useDailyStats(month = null) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Mirrors dailyStats so an edit can read the current rows without waiting for
+  // a re-render — back-to-back cell edits would otherwise race on a stale copy.
+  const statsRef = useRef([])
+
   useEffect(() => {
     fetchStats()
   }, [month])
+
+  function applyStats(rows) {
+    statsRef.current = rows
+    setDailyStats(rows)
+    setMonthlyTotals(computeTotals(rows))
+  }
 
   async function fetchStats() {
     setLoading(true)
@@ -33,8 +73,7 @@ export function useDailyStats(month = null) {
       const { data, error } = await query
       if (error) throw error
 
-      setDailyStats(data)
-      setMonthlyTotals(computeTotals(data))
+      applyStats(data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -42,34 +81,32 @@ export function useDailyStats(month = null) {
     }
   }
 
-  function computeTotals(data) {
-    return data.reduce((acc, row) => ({
-      emails_sent: acc.emails_sent + (row.emails_sent || 0),
-      replies: acc.replies + (row.replies || 0),
-      linkedin_dms: acc.linkedin_dms + (row.linkedin_dms || 0),
-      docs_opened: acc.docs_opened + (row.docs_opened || 0),
-      calls_booked: acc.calls_booked + (row.calls_booked || 0),
-      closes: acc.closes + (row.closes || 0),
-      cash_collected_usd: acc.cash_collected_usd + (row.cash_collected_usd || 0),
-      revenue: acc.revenue + (row.revenue || 0),
-    }), {
-      emails_sent: 0, replies: 0, linkedin_dms: 0,
-      docs_opened: 0, calls_booked: 0, closes: 0,
-      cash_collected_usd: 0, revenue: 0
-    })
-  }
-
+  /**
+   * Writes optimistically: the table and the totals row update on the spot and
+   * the request goes out behind them. Refetching here instead would flip
+   * `loading` on every single cell edit and remount the whole table.
+   */
   async function upsertDailyStat(date, updates) {
-    try {
-      const { error } = await supabase
-        .from('daily_stats')
-        .upsert({ date, ...updates }, { onConflict: 'date' })
-      if (error) throw error
-      await fetchStats()
-      return { error: null }
-    } catch (err) {
-      return { error: err.message }
+    const before = statsRef.current.find(r => r.date === date)
+    applyStats(mergeRow(statsRef.current, date, updates))
+
+    const { error } = await supabase
+      .from('daily_stats')
+      .upsert({ date, ...updates }, { onConflict: 'date' })
+
+    if (error) {
+      // Roll back just the fields this call touched, so a slow failure can't
+      // wipe out edits the user made to other cells in the meantime.
+      const revert = Object.fromEntries(
+        Object.keys(updates).map(field => [field, before?.[field] ?? 0])
+      )
+      applyStats(mergeRow(statsRef.current, date, revert))
+      setError(error.message)
+      return { error: error.message }
     }
+
+    setError(null)
+    return { error: null }
   }
 
   // Computed rates from totals

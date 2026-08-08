@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const COLUMNS = ['Date', 'Emails Sent', 'Replies', 'LI DMs', 'Docs Opened', 'Calls Booked', 'Closes', 'Cash (USD)', 'Revenue']
 
@@ -17,6 +17,42 @@ const FIELDS = [
 const CELL_CLASS =
   'w-20 bg-transparent text-paper text-sm px-2 py-1 rounded-lg border border-transparent hover:border-line focus:border-accent/50 focus:bg-card-2 focus:outline-none transition text-center font-mono ' +
   '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0'
+
+/**
+ * Holds its own draft while focused, then follows `value` again once the user
+ * leaves. That keeps typing untouched by the optimistic write it triggers, and
+ * still puts the old number back on screen if that write is rolled back.
+ */
+function StatCell({ value, isDecimal, inputRef, onKeyDown, onCommit }) {
+  const [draft, setDraft] = useState(String(value))
+  const focusedRef = useRef(false)
+
+  useEffect(() => {
+    if (!focusedRef.current) setDraft(String(value))
+  }, [value])
+
+  return (
+    <input
+      ref={inputRef}
+      type="number"
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onFocus={e => { focusedRef.current = true; e.target.select() }}
+      onKeyDown={onKeyDown}
+      onBlur={() => {
+        focusedRef.current = false
+        // Normalise before comparing so "007" or "" settle back to the value
+        // already on screen instead of firing a write that changes nothing.
+        const normalized = String(isDecimal ? parseFloat(draft) || 0 : parseInt(draft, 10) || 0)
+        setDraft(normalized)
+        if (normalized !== String(value)) onCommit(normalized)
+      }}
+      step={isDecimal ? '0.01' : '1'}
+      min="0"
+      className={CELL_CLASS}
+    />
+  )
+}
 
 export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, loading, onCellEdit }) {
   const cellRefs = useRef({})
@@ -93,20 +129,12 @@ export default function MonthlyStatsTable({ allDays, dailyStats, monthlyTotals, 
                 </td>
                 {FIELDS.map(([field, isDecimal], colIdx) => (
                   <td key={field} className="px-2 py-1">
-                    <input
-                      ref={el => { cellRefs.current[`${rowIdx}-${colIdx}`] = el }}
-                      type="number"
-                      defaultValue={row[field] ?? 0}
-                      onFocus={e => e.target.select()}
+                    <StatCell
+                      value={row[field] ?? 0}
+                      isDecimal={isDecimal}
+                      inputRef={el => { cellRefs.current[`${rowIdx}-${colIdx}`] = el }}
                       onKeyDown={e => handleKeyDown(e, rowIdx, colIdx)}
-                      onBlur={e => {
-                        const val = e.target.value
-                        const original = String(row[field] ?? 0)
-                        if (val !== original) onCellEdit(date, field, val)
-                      }}
-                      step={isDecimal ? '0.01' : '1'}
-                      min="0"
-                      className={CELL_CLASS}
+                      onCommit={val => onCellEdit(date, field, val)}
                     />
                   </td>
                 ))}

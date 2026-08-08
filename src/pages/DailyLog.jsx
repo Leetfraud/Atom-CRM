@@ -13,7 +13,7 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => {
 
 export default function DailyLog() {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
-  const { dailyStats, monthlyTotals, upsertDailyStat, loading } = useDailyStats(selectedMonth)
+  const { dailyStats, monthlyTotals, upsertDailyStat, loading, error } = useDailyStats(selectedMonth)
 
   const daysInMonth = new Date(
     parseInt(selectedMonth.split('-')[0]),
@@ -58,6 +58,14 @@ export default function DailyLog() {
             <h2 className="font-display font-bold text-paper text-base mb-4">
               Daily Log — {formatMonth(selectedMonth)}
             </h2>
+
+            {/* Cells save in the background, so a failed write has to say so —
+                the number will have already snapped back on its own. */}
+            {error && (
+              <p className="bg-down-dim border border-down/30 text-down text-xs rounded-xl px-4 py-2.5 mb-4">
+                Couldn't save: {error}
+              </p>
+            )}
 
             <MonthlyStatsTable
               allDays={allDays}

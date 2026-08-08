@@ -266,9 +266,10 @@ export default function SalesDashboard() {
       {/* Side Panel */}
       {selectedProspect && (
         <ProspectModal
-          /* Keyed by id so switching prospects remounts the panel — otherwise an
-             open edit form keeps the previous prospect's values and saves them
-             onto the newly selected one. */
+          /* Keyed by id so switching prospects remounts the panel — otherwise the
+             edit draft keeps the previous prospect's values and saves them onto
+             the newly selected one. Load-bearing now that edit mode stays on
+             across prospects rather than resetting with each panel open. */
           key={selectedProspect.id}
           prospect={selectedProspect}
           onClose={() => setSelectedProspectId(null)}

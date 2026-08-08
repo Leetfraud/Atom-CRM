@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Dropdown from '../ui/Dropdown'
 import Input from '../ui/Input'
 import { supabase } from '../../lib/supabase'
 import { formatDate } from '../../utils/formatDate'
+import { useEditMode } from '../../context/EditModeContext'
 import { useEmailActivity } from '../../hooks/useEmailActivity'
 import { useLinkedinActivity } from '../../hooks/useLinkedinActivity'
 import { useActivityLog } from '../../hooks/useActivityLog'
@@ -23,26 +24,44 @@ const linkIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 15l6-6" /><path d="M8 10a3 3 0 010-4l2-2a3 3 0 014 4" /><path d="M16 14a3 3 0 010 4l-2 2a3 3 0 01-4-4" /></svg>
 )
 
+// The prospect columns this panel writes back. Kept in one place so the draft
+// form, the dirty check and the save payload can never drift apart.
+const EDITABLE_FIELDS = [
+  'first_name', 'last_name', 'company', 'role_title', 'email',
+  'linkedin_url', 'company_url', 'youtube_url', 'gamma_doc_url', 'place', 'notes',
+]
+
+function snapshotOf(prospect) {
+  return {
+    fields: Object.fromEntries(EDITABLE_FIELDS.map(f => [f, prospect[f] ?? ''])),
+    tags: (prospect.prospect_tags?.map(t => t.tag) ?? []).slice().sort(),
+  }
+}
+
+function sameFields(a, b) {
+  return EDITABLE_FIELDS.every(f => a[f] === b[f])
+}
+
+function sameTags(a, b) {
+  if (a.length !== b.length) return false
+  const [sa, sb] = [[...a].sort(), [...b].sort()]
+  return sa.every((tag, i) => tag === sb[i])
+}
+
 export default function ProspectModal({ prospect, onClose, updateProspect, updateProspectLocal, deleteProspect, refetch }) {
   const { logs, loading: logsLoading, addLog } = useActivityLog(prospect.id)
   const { updateEmailPipeline } = useEmailActivity(addLog)
   const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
+  const { editMode, setEditMode } = useEditMode()
   const [saving, setSaving] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({
-    first_name: prospect.first_name ?? '',
-    last_name: prospect.last_name ?? '',
-    company: prospect.company ?? '',
-    role_title: prospect.role_title ?? '',
-    email: prospect.email ?? '',
-    linkedin_url: prospect.linkedin_url ?? '',
-    company_url: prospect.company_url ?? '',
-    youtube_url: prospect.youtube_url ?? '',
-    gamma_doc_url: prospect.gamma_doc_url ?? '',
-    place: prospect.place ?? '',
-    notes: prospect.notes ?? '',
-  })
-  const [editTags, setEditTags] = useState(prospect.prospect_tags?.map(t => t.tag) ?? [])
+
+  // `baseline` is the last-known-saved snapshot the draft was seeded from.
+  // Diffing against it (rather than against `prospect` directly) is what lets
+  // us tell "the user typed something" apart from "the row changed underneath".
+  const [baseline, setBaseline] = useState(() => snapshotOf(prospect))
+  const [editForm, setEditForm] = useState(baseline.fields)
+  const [editTags, setEditTags] = useState(baseline.tags)
+
   const [activeTab, setActiveTab] = useState('email')
   const [newNote, setNewNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -57,6 +76,20 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
   const li = prospect.linkedin_pipeline?.[0]
   const tags = prospect.prospect_tags?.map(t => t.tag) ?? []
 
+  const dirty = !sameFields(editForm, baseline.fields) || !sameTags(editTags, baseline.tags)
+
+  // Edit mode now stays on across prospects, so the draft can be sitting open
+  // when the row changes elsewhere (a bulk tag action, say). Adopt the new
+  // values when there is nothing unsaved to lose — never clobber a live draft.
+  useEffect(() => {
+    if (dirty) return
+    const next = snapshotOf(prospect)
+    if (sameFields(next.fields, baseline.fields) && sameTags(next.tags, baseline.tags)) return
+    setBaseline(next)
+    setEditForm(next.fields)
+    setEditTags(next.tags)
+  }, [prospect]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function setField(field, value) {
     setEditForm(prev => ({ ...prev, [field]: value }))
   }
@@ -67,25 +100,16 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
     )
   }
 
-  function handleToggleEdit() {
-    if (!editing) {
-      setEditForm({
-        first_name: prospect.first_name ?? '',
-        last_name: prospect.last_name ?? '',
-        company: prospect.company ?? '',
-        role_title: prospect.role_title ?? '',
-        email: prospect.email ?? '',
-        linkedin_url: prospect.linkedin_url ?? '',
-        company_url: prospect.company_url ?? '',
-        youtube_url: prospect.youtube_url ?? '',
-        gamma_doc_url: prospect.gamma_doc_url ?? '',
-        place: prospect.place ?? '',
-        notes: prospect.notes ?? '',
-      })
-      setEditTags(prospect.prospect_tags?.map(t => t.tag) ?? [])
-      setSaveError(null)
-    }
-    setEditing(prev => !prev)
+  function revertDraft() {
+    setEditForm(baseline.fields)
+    setEditTags(baseline.tags)
+    setSaveError(null)
+  }
+
+  function handleToggleEditMode() {
+    if (editMode && dirty && !confirm('Discard unsaved changes?')) return
+    if (editMode) revertDraft()
+    setEditMode(!editMode)
   }
 
   async function handleSaveEdit() {
@@ -126,7 +150,9 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
       setSaveError(error)
       await refetch()
     } else {
-      setEditing(false)
+      // The draft is the saved state now — clears the unsaved-changes bar
+      // without dropping out of edit mode.
+      setBaseline({ fields: editForm, tags: [...editTags].sort() })
     }
     setSaving(false)
   }
@@ -226,14 +252,22 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
         </div>
         <div className="flex items-center gap-2 mt-1">
           <button
-            onClick={handleToggleEdit}
-            className={`font-mono text-[11px] uppercase tracking-wide px-3 py-1.5 rounded-full border transition ${
-              editing
+            onClick={handleToggleEditMode}
+            title={editMode
+              ? 'Edit mode on — fields stay editable on every prospect'
+              : 'Edit mode off — fields are read-only'}
+            className={`flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide px-2.5 py-1.5 rounded-full border transition ${
+              editMode
                 ? 'bg-accent-dim border-accent/40 text-accent'
                 : 'border-line text-paper-dim hover:text-paper hover:border-paper-dim'
             }`}
           >
-            {editing ? 'Cancel' : 'Edit'}
+            Edit
+            <span className={`relative w-7 h-4 rounded-full transition-colors ${editMode ? 'bg-accent' : 'bg-line'}`}>
+              <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-paper rounded-full shadow transition-transform ${
+                editMode ? 'translate-x-3' : 'translate-x-0'
+              }`} />
+            </span>
           </button>
           <button onClick={onClose} className="text-fog hover:text-paper transition text-lg leading-none">✕</button>
         </div>
@@ -241,311 +275,309 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
 
       <div className="flex flex-col gap-6 p-6">
 
-        {editing ? (
-          /* Edit Mode */
-          <>
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Identity</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="First Name" value={editForm.first_name} onChange={e => setField('first_name', e.target.value)} />
-                <Input label="Last Name" value={editForm.last_name} onChange={e => setField('last_name', e.target.value)} />
-                <Input label="Role / Title" value={editForm.role_title} onChange={e => setField('role_title', e.target.value)} />
-                <Input label="Company" value={editForm.company} onChange={e => setField('company', e.target.value)} />
-                <Input label="Place" value={editForm.place} onChange={e => setField('place', e.target.value)} className="col-span-2" />
+        {/* Identity — editable fields only; the header already shows them read-only */}
+        {editMode && (
+          <div>
+            <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Identity</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="First Name" value={editForm.first_name} onChange={e => setField('first_name', e.target.value)} />
+              <Input label="Last Name" value={editForm.last_name} onChange={e => setField('last_name', e.target.value)} />
+              <Input label="Role / Title" value={editForm.role_title} onChange={e => setField('role_title', e.target.value)} />
+              <Input label="Company" value={editForm.company} onChange={e => setField('company', e.target.value)} />
+              <Input label="Place" value={editForm.place} onChange={e => setField('place', e.target.value)} className="col-span-2" />
+            </div>
+          </div>
+        )}
+
+        {/* Links */}
+        <div>
+          <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Links</p>
+          {editMode ? (
+            <div className="flex flex-col gap-3">
+              <Input label="Email" value={editForm.email} onChange={e => setField('email', e.target.value)} />
+              <Input label="LinkedIn URL" value={editForm.linkedin_url} onChange={e => setField('linkedin_url', e.target.value)} />
+              <Input label="Company URL" value={editForm.company_url} onChange={e => setField('company_url', e.target.value)} />
+              <Input label="YouTube URL" value={editForm.youtube_url} onChange={e => setField('youtube_url', e.target.value)} />
+              <Input label="Gamma Doc URL" value={editForm.gamma_doc_url} onChange={e => setField('gamma_doc_url', e.target.value)} />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {links.map(({ label, value, href }) => (
+                <div key={label} className="flex flex-col gap-1 bg-ink border border-line rounded-xl px-4 py-3">
+                  <span className="text-fog text-[10px] font-mono uppercase tracking-wide">{label}</span>
+                  {value ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent text-sm hover:text-paper transition break-all leading-snug"
+                    >
+                      {value}
+                    </a>
+                  ) : (
+                    <span className="text-fog text-sm">—</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Email Pipeline */}
+        <div>
+          <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Email Pipeline</p>
+          <div className="flex flex-col gap-3">
+            <Dropdown
+              label="Stage"
+              value={email?.stage ?? 'Prospects'}
+              onChange={handleEmailStageChange}
+              options={EMAIL_PIPELINE_STAGES}
+            />
+            {stageError && <p className="text-down text-xs">{stageError}</p>}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Inbox</p>
+                <p className="text-paper">{email?.inbox_used ?? '—'}</p>
+              </div>
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Sequence</p>
+                <p className="text-paper">{email?.sequence_stage ?? '—'}</p>
+              </div>
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Emails Sent</p>
+                <p className="text-paper">{email?.emails_sent ?? 0}</p>
+              </div>
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Last Email</p>
+                <p className="text-paper">{formatDate(email?.last_email_date)}</p>
               </div>
             </div>
+            <div className="flex items-center justify-between bg-ink rounded-xl px-3 py-2.5 border border-line">
+              <span className="text-fog text-xs">Replied</span>
+              <button
+                onClick={async () => {
+                  const previousReplied = email?.replied
+                  const nextReplied = !previousReplied
+                  setSaving(true)
+                  setRepliedError(null)
+                  updateProspectLocal(prospect.id, p => ({
+                    ...p,
+                    email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), replied: nextReplied }]
+                  }))
+                  const { error } = await updateEmailPipeline(prospect.id, { replied: nextReplied })
+                  if (error) {
+                    updateProspectLocal(prospect.id, p => ({
+                      ...p,
+                      email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), replied: previousReplied }]
+                    }))
+                    setRepliedError(error)
+                  }
+                  setSaving(false)
+                }}
+                className={`relative w-9 h-5 rounded-full transition-colors ${
+                  email?.replied ? 'bg-mint' : 'bg-line'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-paper rounded-full shadow transition-transform ${
+                  email?.replied ? 'translate-x-4' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+            {repliedError && <p className="text-down text-xs">{repliedError}</p>}
+          </div>
+        </div>
 
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Links</p>
-              <div className="flex flex-col gap-3">
-                <Input label="Email" value={editForm.email} onChange={e => setField('email', e.target.value)} />
-                <Input label="LinkedIn URL" value={editForm.linkedin_url} onChange={e => setField('linkedin_url', e.target.value)} />
-                <Input label="Company URL" value={editForm.company_url} onChange={e => setField('company_url', e.target.value)} />
-                <Input label="YouTube URL" value={editForm.youtube_url} onChange={e => setField('youtube_url', e.target.value)} />
-                <Input label="Gamma Doc URL" value={editForm.gamma_doc_url} onChange={e => setField('gamma_doc_url', e.target.value)} />
+        {/* LinkedIn Pipeline */}
+        <div>
+          <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">LinkedIn Pipeline</p>
+          <div className="flex flex-col gap-3">
+            <Dropdown
+              label="Connection Status"
+              value={li?.connection_status ?? 'Pending'}
+              onChange={handleLIConnectionChange}
+              options={LINKEDIN_CONNECTION_STATUSES}
+            />
+            {connectionError && <p className="text-down text-xs">{connectionError}</p>}
+            <Dropdown
+              label="DM Status"
+              value={li?.dm_status ?? 'Not Sent'}
+              onChange={handleLIDMChange}
+              options={LINKEDIN_DM_STATUSES}
+            />
+            {dmError && <p className="text-down text-xs">{dmError}</p>}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Follow-ups Sent</p>
+                <p className="text-paper">{li?.follow_ups_sent ?? 0}</p>
+              </div>
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Call Booked</p>
+                <p className={li?.call_booked ? 'text-mint' : 'text-fog'}>
+                  {li?.call_booked ? 'Yes' : 'No'}
+                </p>
+              </div>
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Onboarded</p>
+                <p className={li?.onboarded ? 'text-mint' : 'text-fog'}>
+                  {li?.onboarded ? 'Yes' : 'No'}
+                </p>
+              </div>
+              <div className="bg-ink rounded-xl p-3 border border-line">
+                <p className="text-fog mb-1">Last Action</p>
+                <p className="text-paper">{formatDate(li?.last_action_date)}</p>
               </div>
             </div>
-
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
-              <div className="flex flex-wrap gap-2">
-                {PROSPECT_TAGS.map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1 rounded-full font-mono text-[11px] transition border ${
-                      editTags.includes(tag)
-                        ? 'bg-accent-dim border-accent/40 text-accent'
-                        : 'bg-card-2 border-line text-paper-dim hover:border-paper-dim'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
+            {li?.outcome_notes && (
+              <div className="bg-ink rounded-xl p-3 border border-line text-xs">
+                <p className="text-fog mb-1">Outcome Notes</p>
+                <p className="text-paper-dim">{li.outcome_notes}</p>
               </div>
-            </div>
+            )}
+          </div>
+        </div>
 
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Notes</p>
+        {/* Tags */}
+        <div>
+          <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
+          {editMode ? (
+            <div className="flex flex-wrap gap-2">
+              {PROSPECT_TAGS.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`px-3 py-1 rounded-full font-mono text-[11px] transition border ${
+                    editTags.includes(tag)
+                      ? 'bg-accent-dim border-accent/40 text-accent'
+                      : 'bg-card-2 border-line text-paper-dim hover:border-paper-dim'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {tags.length > 0
+                ? tags.map(t => <Badge key={t} label={t} />)
+                : <span className="text-fog text-xs">No tags</span>}
+            </div>
+          )}
+        </div>
+
+        {/* Notes */}
+        {(editMode || prospect.notes) && (
+          <div>
+            <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Notes</p>
+            {editMode ? (
               <textarea
                 value={editForm.notes}
                 onChange={e => setField('notes', e.target.value)}
                 rows={4}
                 className="w-full bg-card-2 text-paper rounded-xl px-4 py-2.5 text-sm border border-line focus:outline-none focus:border-accent/50 placeholder-fog resize-none transition"
               />
-            </div>
-
-            {saveError && <p className="text-down text-xs">{saveError}</p>}
-
-            <div className="flex justify-end gap-3 pt-2 border-t border-line">
-              <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button onClick={handleSaveEdit} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </>
-        ) : (
-          /* View Mode */
-          <>
-            {/* Links */}
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Links</p>
-              <div className="flex flex-col gap-2">
-  {links.map(({ label, value, href }) => (
-    <div key={label} className="flex flex-col gap-1 bg-ink border border-line rounded-xl px-4 py-3">
-      <span className="text-fog text-[10px] font-mono uppercase tracking-wide">{label}</span>
-      {value ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="text-accent text-sm hover:text-paper transition break-all leading-snug"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className="text-fog text-sm">—</span>
-      )}
-    </div>
-  ))}
-</div>
-            </div>
-
-            {/* Email Pipeline */}
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Email Pipeline</p>
-              <div className="flex flex-col gap-3">
-                <Dropdown
-                  label="Stage"
-                  value={email?.stage ?? 'Prospects'}
-                  onChange={handleEmailStageChange}
-                  options={EMAIL_PIPELINE_STAGES}
-                />
-                {stageError && <p className="text-down text-xs">{stageError}</p>}
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Inbox</p>
-                    <p className="text-paper">{email?.inbox_used ?? '—'}</p>
-                  </div>
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Sequence</p>
-                    <p className="text-paper">{email?.sequence_stage ?? '—'}</p>
-                  </div>
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Emails Sent</p>
-                    <p className="text-paper">{email?.emails_sent ?? 0}</p>
-                  </div>
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Last Email</p>
-                    <p className="text-paper">{formatDate(email?.last_email_date)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between bg-ink rounded-xl px-3 py-2.5 border border-line">
-  <span className="text-fog text-xs">Replied</span>
-  <button
-    onClick={async () => {
-      const previousReplied = email?.replied
-      const nextReplied = !previousReplied
-      setSaving(true)
-      setRepliedError(null)
-      updateProspectLocal(prospect.id, p => ({
-        ...p,
-        email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), replied: nextReplied }]
-      }))
-      const { error } = await updateEmailPipeline(prospect.id, { replied: nextReplied })
-      if (error) {
-        updateProspectLocal(prospect.id, p => ({
-          ...p,
-          email_pipeline: [{ ...(p.email_pipeline?.[0] ?? {}), replied: previousReplied }]
-        }))
-        setRepliedError(error)
-      }
-      setSaving(false)
-    }}
-    className={`relative w-9 h-5 rounded-full transition-colors ${
-      email?.replied ? 'bg-mint' : 'bg-line'
-    }`}
-  >
-    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-paper rounded-full shadow transition-transform ${
-      email?.replied ? 'translate-x-4' : 'translate-x-0'
-    }`} />
-  </button>
-</div>
-{repliedError && <p className="text-down text-xs">{repliedError}</p>}
-              </div>
-            </div>
-
-            {/* LinkedIn Pipeline */}
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">LinkedIn Pipeline</p>
-              <div className="flex flex-col gap-3">
-                <Dropdown
-                  label="Connection Status"
-                  value={li?.connection_status ?? 'Pending'}
-                  onChange={handleLIConnectionChange}
-                  options={LINKEDIN_CONNECTION_STATUSES}
-                />
-                {connectionError && <p className="text-down text-xs">{connectionError}</p>}
-                <Dropdown
-                  label="DM Status"
-                  value={li?.dm_status ?? 'Not Sent'}
-                  onChange={handleLIDMChange}
-                  options={LINKEDIN_DM_STATUSES}
-                />
-                {dmError && <p className="text-down text-xs">{dmError}</p>}
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Follow-ups Sent</p>
-                    <p className="text-paper">{li?.follow_ups_sent ?? 0}</p>
-                  </div>
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Call Booked</p>
-                    <p className={li?.call_booked ? 'text-mint' : 'text-fog'}>
-                      {li?.call_booked ? 'Yes' : 'No'}
-                    </p>
-                  </div>
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Onboarded</p>
-                    <p className={li?.onboarded ? 'text-mint' : 'text-fog'}>
-                      {li?.onboarded ? 'Yes' : 'No'}
-                    </p>
-                  </div>
-                  <div className="bg-ink rounded-xl p-3 border border-line">
-                    <p className="text-fog mb-1">Last Action</p>
-                    <p className="text-paper">{formatDate(li?.last_action_date)}</p>
-                  </div>
-                </div>
-                {li?.outcome_notes && (
-                  <div className="bg-ink rounded-xl p-3 border border-line text-xs">
-                    <p className="text-fog mb-1">Outcome Notes</p>
-                    <p className="text-paper-dim">{li.outcome_notes}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Tags */}
-            <div>
-              <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.length > 0
-                  ? tags.map(t => <Badge key={t} label={t} />)
-                  : <span className="text-fog text-xs">No tags</span>}
-              </div>
-            </div>
-
-            {/* Notes */}
-            {prospect.notes && (
-              <div>
-                <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Notes</p>
-                <p className="text-paper-dim text-sm leading-relaxed">{prospect.notes}</p>
-              </div>
+            ) : (
+              <p className="text-paper-dim text-sm leading-relaxed">{prospect.notes}</p>
             )}
-            {/* Activity Log */}
-<div>
-  <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Activity Log</p>
+          </div>
+        )}
 
-  {/* Tabs */}
-  <div className="flex items-center bg-card-2 border border-line rounded-full p-1 gap-1 mb-4">
-    <button
-      onClick={() => setActiveTab('email')}
-      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wide transition ${
-        activeTab === 'email' ? 'bg-paper text-ink' : 'text-fog hover:text-paper'
-      }`}
-    >
-      <span className="w-3.5 h-3.5">{mailIcon}</span> Email
-    </button>
-    <button
-      onClick={() => setActiveTab('linkedin')}
-      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wide transition ${
-        activeTab === 'linkedin' ? 'bg-paper text-ink' : 'text-fog hover:text-paper'
-      }`}
-    >
-      <span className="w-3.5 h-3.5">{linkIcon}</span> LinkedIn
-    </button>
-  </div>
+        {/* Activity Log */}
+        <div>
+          <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Activity Log</p>
 
-  {/* Note input */}
-  <div className="flex gap-2 mb-4">
-    <input
-      type="text"
-      value={newNote}
-      onChange={e => setNewNote(e.target.value)}
-      onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-      placeholder={`Add a ${activeTab} note...`}
-      className="flex-1 bg-card-2 text-paper text-xs rounded-xl px-3 py-2 border border-line focus:outline-none focus:border-accent/50 placeholder-fog transition"
-    />
-    <button
-      onClick={handleAddNote}
-      disabled={savingNote || !newNote.trim()}
-      className="px-3 py-2 bg-accent-dim text-accent border border-accent/30 rounded-full font-mono text-[11px] uppercase tracking-wide hover:bg-accent/20 transition disabled:opacity-40"
-    >
-      {savingNote ? '...' : 'Add'}
-    </button>
-  </div>
+          {/* Tabs */}
+          <div className="flex items-center bg-card-2 border border-line rounded-full p-1 gap-1 mb-4">
+            <button
+              onClick={() => setActiveTab('email')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wide transition ${
+                activeTab === 'email' ? 'bg-paper text-ink' : 'text-fog hover:text-paper'
+              }`}
+            >
+              <span className="w-3.5 h-3.5">{mailIcon}</span> Email
+            </button>
+            <button
+              onClick={() => setActiveTab('linkedin')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wide transition ${
+                activeTab === 'linkedin' ? 'bg-paper text-ink' : 'text-fog hover:text-paper'
+              }`}
+            >
+              <span className="w-3.5 h-3.5">{linkIcon}</span> LinkedIn
+            </button>
+          </div>
 
-  {/* Log entries */}
-  {logsLoading ? (
-    <div className="flex justify-center py-6">
-      <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-    </div>
-  ) : (
-    <div className="flex flex-col gap-2">
-      {logs.filter(l => l.type === activeTab).length === 0 ? (
-        <p className="text-fog text-xs text-center py-4">No {activeTab} activity yet.</p>
-      ) : (
-        logs
-          .filter(l => l.type === activeTab)
-          .map(log => (
-            <div key={log.id} className="bg-ink rounded-xl px-3 py-2.5 border border-line">
-              <p className="text-paper-dim text-xs">{log.action}</p>
-              {log.note && (
-                <p className="text-fog text-xs mt-1 italic">"{log.note}"</p>
+          {/* Note input */}
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newNote}
+              onChange={e => setNewNote(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+              placeholder={`Add a ${activeTab} note...`}
+              className="flex-1 bg-card-2 text-paper text-xs rounded-xl px-3 py-2 border border-line focus:outline-none focus:border-accent/50 placeholder-fog transition"
+            />
+            <button
+              onClick={handleAddNote}
+              disabled={savingNote || !newNote.trim()}
+              className="px-3 py-2 bg-accent-dim text-accent border border-accent/30 rounded-full font-mono text-[11px] uppercase tracking-wide hover:bg-accent/20 transition disabled:opacity-40"
+            >
+              {savingNote ? '...' : 'Add'}
+            </button>
+          </div>
+
+          {/* Log entries */}
+          {logsLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {logs.filter(l => l.type === activeTab).length === 0 ? (
+                <p className="text-fog text-xs text-center py-4">No {activeTab} activity yet.</p>
+              ) : (
+                logs
+                  .filter(l => l.type === activeTab)
+                  .map(log => (
+                    <div key={log.id} className="bg-ink rounded-xl px-3 py-2.5 border border-line">
+                      <p className="text-paper-dim text-xs">{log.action}</p>
+                      {log.note && (
+                        <p className="text-fog text-xs mt-1 italic">"{log.note}"</p>
+                      )}
+                      <p className="text-fog text-xs mt-1.5">
+                        {new Date(log.created_at).toLocaleDateString('en-GB', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  ))
               )}
-              <p className="text-fog text-xs mt-1.5">
-                {new Date(log.created_at).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit'
-                })}
-              </p>
             </div>
-          ))
-      )}
-    </div>
-  )}
-</div>
-            {/* Meta */}
-            <div className="text-xs text-fog border-t border-line pt-4">
-              Added {formatDate(prospect.created_at)} · Updated {formatDate(prospect.updated_at)}
-            </div>
+          )}
+        </div>
 
-            {/* Danger zone */}
-            <div className="border-t border-line pt-4">
-              <Button variant="danger" onClick={handleDelete} className="w-full justify-center">
-                Delete Prospect
-              </Button>
-            </div>
-          </>
+        {/* Meta */}
+        <div className="text-xs text-fog border-t border-line pt-4">
+          Added {formatDate(prospect.created_at)} · Updated {formatDate(prospect.updated_at)}
+        </div>
+
+        {/* Danger zone */}
+        <div className="border-t border-line pt-4">
+          <Button variant="danger" onClick={handleDelete} className="w-full justify-center">
+            Delete Prospect
+          </Button>
+        </div>
+
+        {/* Save bar — only surfaces once there is actually something to save */}
+        {editMode && (dirty || saveError) && (
+          <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-4 bg-card border-t border-line flex items-center gap-3">
+            {saveError
+              ? <p className="text-down text-xs flex-1">{saveError}</p>
+              : <p className="text-fog font-mono text-[11px] uppercase tracking-wide flex-1">Unsaved changes</p>}
+            <Button variant="secondary" onClick={revertDraft} disabled={saving}>Revert</Button>
+            <Button onClick={handleSaveEdit} disabled={saving || !dirty}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
         )}
       </div>
     </div>
