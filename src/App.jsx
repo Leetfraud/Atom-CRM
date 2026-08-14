@@ -11,6 +11,7 @@ const SalesDashboard = lazy(() => import('./pages/SalesDashboard'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const DailyLog = lazy(() => import('./pages/DailyLog'))
 const Import = lazy(() => import('./pages/Import'))
+const OAuthConsent = lazy(() => import('./pages/OAuthConsent'))
 
 export default function App() {
   return (
@@ -22,6 +23,11 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            {/* Deliberately outside ProtectedRoute: this is the OAuth
+                authorization endpoint an external client redirects to, and it
+                handles its own sign-in bounce so the pending request survives
+                the round trip through /login. */}
+            <Route path="/oauth/authorize" element={<OAuthConsent />} />
             <Route path="/sales" element={
               <ProtectedRoute allowedRoles={['sales', 'exec']}>
                 <SalesDashboard />

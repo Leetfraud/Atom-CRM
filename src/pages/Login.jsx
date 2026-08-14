@@ -1,20 +1,33 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { HOME_FOR_ROLE } from '../components/layout/ProtectedRoute'
+
+// Only same-origin paths are honoured as a post-login destination. Anything
+// absolute or protocol-relative ("//evil.com") would turn the login page into
+// an open redirect, so those fall through to the role's normal home.
+function safeNext(value) {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null
+  return value
+}
 
 export default function Login() {
   const { signIn, role } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
 
+  // The OAuth consent screen bounces unauthenticated users here with ?next=,
+  // so they land back on the pending authorization instead of the dashboard.
+  const next = safeNext(searchParams.get('next'))
+
   useEffect(() => {
     if (!role) return
-    navigate(HOME_FOR_ROLE[role] ?? '/sales')
-  }, [role, navigate])
+    navigate(next ?? HOME_FOR_ROLE[role] ?? '/sales')
+  }, [role, navigate, next])
 
   async function handleLogin() {
     setLoading(true)
