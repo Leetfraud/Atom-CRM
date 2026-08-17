@@ -9,8 +9,8 @@ import { useEditMode } from '../../context/EditModeContext'
 import { useEmailActivity } from '../../hooks/useEmailActivity'
 import { useLinkedinActivity } from '../../hooks/useLinkedinActivity'
 import { useActivityLog } from '../../hooks/useActivityLog'
-// remove:  PROSPECT_TAGS,  from the constants import
 import { useTags } from '../../hooks/useTags'
+import { useResizablePanel } from '../../hooks/useResizablePanel'
 
 import {
   EMAIL_PIPELINE_STAGES,
@@ -60,6 +60,8 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
   const [saving, setSaving] = useState(false)
   const { tags: availableTags, createTag } = useTags()
   const [newTagInput, setNewTagInput] = useState('')
+  const { width, dragging, startDrag, resetWidth, onHandleKeyDown } =
+    useResizablePanel('prospect-panel-width', 440)
 
   // `baseline` is the last-known-saved snapshot the draft was seeded from.
   // Diffing against it (rather than against `prospect` directly) is what lets
@@ -243,7 +245,11 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
   ]
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 w-[440px] bg-card border-l border-line z-40 overflow-y-auto flex flex-col">
+    <>
+    <div
+      style={{ width }}
+      className="fixed top-0 right-0 bottom-0 bg-card border-l border-line z-40 overflow-y-auto flex flex-col"
+    >
       {/* Header */}
       <div className="flex items-start justify-between p-6 border-b border-line sticky top-0 bg-card z-10">
         <div>
@@ -617,5 +623,30 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
         )}
       </div>
     </div>
+
+    {/* Resize handle. Fixed and rendered as a sibling rather than inside the
+        panel: the panel scrolls, and a handle within it would scroll away from
+        the edge it is supposed to grab. `right` straddles the panel border so
+        the target extends a few px either side of a 1px line. */}
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize panel"
+      aria-valuenow={Math.round(width)}
+      tabIndex={0}
+      onPointerDown={startDrag}
+      onDoubleClick={resetWidth}
+      onKeyDown={onHandleKeyDown}
+      title="Drag to resize · double-click to reset"
+      style={{ right: width - 3 }}
+      className="fixed top-0 bottom-0 w-1.5 z-40 cursor-col-resize group focus:outline-none"
+    >
+      <div
+        className={`h-full w-px mx-auto transition-colors ${
+          dragging ? 'bg-accent' : 'bg-transparent group-hover:bg-accent/60 group-focus:bg-accent/60'
+        }`}
+      />
+    </div>
+    </>
   )
 }

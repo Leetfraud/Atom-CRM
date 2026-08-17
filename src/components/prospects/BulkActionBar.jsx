@@ -13,6 +13,7 @@ export default function BulkActionBar({
   tagStates,
   onSetStatus,
   onToggleTag,
+  onCreateTag,
   onClear,
   applying,
   position,
@@ -20,6 +21,7 @@ export default function BulkActionBar({
 }) {
   const panelRef = useRef(null)
   const [coords, setCoords] = useState({ left: position.x, top: position.y })
+  const [newTag, setNewTag] = useState('')
 
   // Measure once mounted and flip the panel back over the cursor if it would
   // overflow. useLayoutEffect so the correction lands before paint.
@@ -59,6 +61,18 @@ export default function BulkActionBar({
   }, [onClear])
 
   const statusLabel = pipelineMode === 'email' ? 'Email Stage' : 'LinkedIn DM Status'
+
+  // Creating from here always *applies* the tag to the selection too — the
+  // panel exists to act on the selected rows, so a tag that appeared in the
+  // list but was left unchecked would be a dead end.
+  async function submitNewTag() {
+    const trimmed = newTag.trim()
+    if (!trimmed || applying) return
+    const result = await onCreateTag(trimmed)
+    // Keep the text on failure so the attempt can be retried — the reason is
+    // already rendered below by `error`.
+    if (!result?.error) setNewTag('')
+  }
 
   return (
     <div
@@ -130,6 +144,32 @@ export default function BulkActionBar({
                 </label>
               )
             })}
+          </div>
+
+          {/* Create a tag and apply it to the selection in one gesture */}
+          <div className="flex items-center gap-1.5 mt-1">
+            <input
+              type="text"
+              value={newTag}
+              disabled={applying}
+              onChange={e => setNewTag(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== 'Enter') return
+                // The panel closes on Escape via a document listener; Enter is
+                // ours, and must not bubble out to any enclosing form.
+                e.preventDefault()
+                submitNewTag()
+              }}
+              placeholder="New tag…"
+              className="flex-1 min-w-0 bg-card-2 border border-line rounded-lg px-2.5 py-1.5 text-sm text-paper placeholder:text-fog outline-none focus:border-accent/50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <button
+              onClick={submitNewTag}
+              disabled={applying || !newTag.trim()}
+              className="shrink-0 px-2.5 py-1.5 rounded-lg font-mono text-[10px] uppercase tracking-wide border border-line text-paper-dim hover:border-accent/60 hover:text-accent transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-line disabled:hover:text-paper-dim"
+            >
+              + Add
+            </button>
           </div>
         </div>
 

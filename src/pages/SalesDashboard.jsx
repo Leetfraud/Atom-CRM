@@ -45,7 +45,7 @@ export default function SalesDashboard() {
   const [menuPos, setMenuPos] = useState(null)
   const { prospects, loading, filterProspects, addProspect, refetch, generateSerial, updateProspect, updateProspectLocal, deleteProspect } = useProspects()
   const { applying, error: bulkError, setStage, setDmStatus, addTag, removeTag } = useBulkActions()
-  const { tags: availableTags } = useTags()
+  const { tags: availableTags, createTag } = useTags()
   const [pipelineMode, setPipelineMode] = useState('email') // 'email' | 'linkedin'
 
   const selectedProspect = prospects.find(p => p.id === selectedProspectId) ?? null
@@ -137,6 +137,17 @@ export default function SalesDashboard() {
     const ids = [...selectedIds]
     const { error } = nextChecked ? await addTag(ids, tag) : await removeTag(ids, tag)
     if (!error) await refetch()
+    return { error }
+  }
+
+  // Register the tag before applying it: `prospect_tags.tag` refers to a row in
+  // `tags`, so tagging against a name that isn't there yet fails. createTag is a
+  // no-op for a name that already exists, which makes retyping an existing tag
+  // behave the same as ticking its checkbox.
+  async function handleCreateTag(name) {
+    const tag = await createTag(name)
+    if (!tag) return { error: null }
+    return handleToggleTag(tag, true)
   }
 
   async function handleAddProspect(data) {
@@ -255,6 +266,7 @@ export default function SalesDashboard() {
           tagStates={tagStates}
           onSetStatus={handleBulkStatus}
           onToggleTag={handleToggleTag}
+          onCreateTag={handleCreateTag}
           onClear={clearSelection}
           applying={applying}
           position={menuPos}
