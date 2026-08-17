@@ -9,7 +9,6 @@ import {
   LINKEDIN_DM_STATUSES
 } from '../../utils/constants'
 
-const { tags: availableTags } = useTags()
 
 const sourceBadge = {
   matched: { label: 'Matched', cls: 'bg-mint-dim text-mint' },
@@ -20,6 +19,7 @@ const sourceBadge = {
 // One review row: a collapsed summary line plus an expandable editor that
 // exposes every field (reusing Input/Dropdown), tag toggles, and notes.
 export default function ImportReviewRow({ row, onChange, onToggleInclude }) {
+  const { tags: availableTags } = useTags()
   const [open, setOpen] = useState(false)
   const src = sourceBadge[row.source] ?? sourceBadge.linkedin
 

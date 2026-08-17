@@ -19,8 +19,7 @@ import {
 } from '../../utils/constants'
 
 
-const { tags: availableTags, createTag } = useTags()
-const [newTagInput, setNewTagInput] = useState('')
+
 
 const mailIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>
@@ -59,6 +58,8 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
   const { updateLinkedinPipeline } = useLinkedinActivity(addLog)
   const { editMode, setEditMode } = useEditMode()
   const [saving, setSaving] = useState(false)
+  const { tags: availableTags, createTag } = useTags()
+  const [newTagInput, setNewTagInput] = useState('')
 
   // `baseline` is the last-known-saved snapshot the draft was seeded from.
   // Diffing against it (rather than against `prospect` directly) is what lets

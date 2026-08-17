@@ -9,8 +9,7 @@ import {
   LINKEDIN_DM_STATUSES
 } from '../../utils/constants'
 
-const { tags: availableTags, createTag } = useTags()
-const [newTagInput, setNewTagInput] = useState('')
+
 
 
 const emptyForm = {
@@ -138,6 +137,8 @@ export default function ProspectForm({ onSubmit, onCancel, generateSerial }) {
   const [showPaste, setShowPaste] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const { tags: availableTags, createTag } = useTags()
+  const [newTagInput, setNewTagInput] = useState('')
 
   function set(field, value) {
     setForm(prev => ({ ...prev, [field]: value }))
