@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Input from '../ui/Input'
 import Dropdown from '../ui/Dropdown'
 import Badge from '../ui/Badge'
-import useTags from "../../hooks/useTags"
+import { useTags } from '../../hooks/useTags'
 import {
   EMAIL_PIPELINE_STAGES,
   LINKEDIN_CONNECTION_STATUSES,
@@ -92,7 +92,7 @@ export default function ImportReviewRow({ row, onChange, onToggleInclude }) {
           <div className="mt-4">
             <p className="font-mono text-fog text-[10px] uppercase tracking-wide mb-2">Tags</p>
             <div className="flex flex-wrap gap-2">
-              {PROSPECT_TAGS.map(tag => (
+              {availableTags.map(tag => (
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
