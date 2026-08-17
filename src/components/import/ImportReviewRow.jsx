@@ -2,12 +2,14 @@ import { useState } from 'react'
 import Input from '../ui/Input'
 import Dropdown from '../ui/Dropdown'
 import Badge from '../ui/Badge'
+import useTags from "../../hooks/useTags"
 import {
   EMAIL_PIPELINE_STAGES,
   LINKEDIN_CONNECTION_STATUSES,
-  LINKEDIN_DM_STATUSES,
-  PROSPECT_TAGS,
+  LINKEDIN_DM_STATUSES
 } from '../../utils/constants'
+
+const { tags: availableTags } = useTags()
 
 const sourceBadge = {
   matched: { label: 'Matched', cls: 'bg-mint-dim text-mint' },

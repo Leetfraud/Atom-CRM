@@ -15,6 +15,8 @@ import { useProspects } from '../hooks/useProspects'
 import { useBulkActions } from '../hooks/useBulkActions'
 import { EMAIL_PIPELINE_STAGES, LINKEDIN_DM_STATUSES } from '../utils/constants'
 
+const { tags: availableTags } = useTags()
+
 const icons = {
   people: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="9" cy="7" r="3.2" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" /><circle cx="17" cy="8" r="2.4" /><path d="M15.5 14.2c2.6.4 4.5 2.6 4.5 5.3" /></svg>
@@ -117,7 +119,7 @@ export default function SalesDashboard() {
         counts.set(tag, (counts.get(tag) ?? 0) + 1)
       }
     }
-    return Object.fromEntries(PROSPECT_TAGS.map(tag => {
+    return Object.fromEntries(availableTags.map(tag => {
       const n = counts.get(tag) ?? 0
       return [tag, n === 0 ? 'none' : n === selected.length ? 'all' : 'some']
     }))
@@ -249,7 +251,7 @@ export default function SalesDashboard() {
           count={selectedIds.size}
           pipelineMode={pipelineMode}
           stageOptions={stageOptions}
-          tagOptions={PROSPECT_TAGS}
+          tagOptions={availableTags}
           tagStates={tagStates}
           onSetStatus={handleBulkStatus}
           onToggleTag={handleToggleTag}

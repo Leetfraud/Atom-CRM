@@ -35,19 +35,3 @@ export const LINKEDIN_DM_STATUSES = [
   'No Response - Closed',
 ]
 
-export const PROSPECT_TAGS = [
-  'Needs Gamma',
-  'Needs New Script',
-  'Edits',
-  'No Results Available',
-  'Without Loom',
-  'D1',
-  'Discussion',
-  'Email',
-  'NoEmail',
-  'Bounced',
-  'DMed on In',
-  'Disqualified',
-  'Qualified',
-  'Cofounder',
-]
