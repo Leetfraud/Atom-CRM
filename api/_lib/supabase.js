@@ -35,7 +35,28 @@ export function adminClient() {
 export function issuer() {
   const raw = process.env.OAUTH_ISSUER
   if (!raw) throw new Error('OAUTH_ISSUER is not set (e.g. https://atom.example.com)')
-  return raw.replace(/\/+$/, '')
+
+  const trimmed = raw.trim().replace(/\/+$/, '')
+
+  // A bare hostname is the easy mistake to make here, and it fails in a way
+  // that is hard to spot: the discovery documents still render and still return
+  // 200, but every URL inside them is missing a scheme, so no OAuth client will
+  // accept them. Assume https rather than emitting something unusable.
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  let url
+  try {
+    url = new URL(withScheme)
+  } catch {
+    throw new Error(`OAUTH_ISSUER is not a valid URL: ${raw}`)
+  }
+
+  const isLoopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+  if (url.protocol !== 'https:' && !isLoopback) {
+    throw new Error(`OAUTH_ISSUER must use https (got "${raw}")`)
+  }
+
+  return withScheme
 }
 
 /** Canonical identifier of the protected resource, per RFC 8707. */

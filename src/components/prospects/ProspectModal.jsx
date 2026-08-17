@@ -9,13 +9,18 @@ import { useEditMode } from '../../context/EditModeContext'
 import { useEmailActivity } from '../../hooks/useEmailActivity'
 import { useLinkedinActivity } from '../../hooks/useLinkedinActivity'
 import { useActivityLog } from '../../hooks/useActivityLog'
+// remove:  PROSPECT_TAGS,  from the constants import
+import { useTags } from '../../hooks/useTags'
 
 import {
   EMAIL_PIPELINE_STAGES,
   LINKEDIN_CONNECTION_STATUSES,
-  LINKEDIN_DM_STATUSES,
-  PROSPECT_TAGS
+  LINKEDIN_DM_STATUSES
 } from '../../utils/constants'
+
+
+const { tags: availableTags, createTag } = useTags()
+const [newTagInput, setNewTagInput] = useState('')
 
 const mailIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>
@@ -436,33 +441,63 @@ export default function ProspectModal({ prospect, onClose, updateProspect, updat
           </div>
         </div>
 
-        {/* Tags */}
-        <div>
-          <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
-          {editMode ? (
-            <div className="flex flex-wrap gap-2">
-              {PROSPECT_TAGS.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1 rounded-full font-mono text-[11px] transition border ${
-                    editTags.includes(tag)
-                      ? 'bg-accent-dim border-accent/40 text-accent'
-                      : 'bg-card-2 border-line text-paper-dim hover:border-paper-dim'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {tags.length > 0
-                ? tags.map(t => <Badge key={t} label={t} />)
-                : <span className="text-fog text-xs">No tags</span>}
-            </div>
-          )}
-        </div>
+{/* Tags */}
+<div>
+  <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
+  {editMode ? (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {availableTags.map(tag => (
+          <button
+            key={tag}
+            onClick={() => toggleTag(tag)}
+            className={`px-3 py-1 rounded-full font-mono text-[11px] transition border ${
+              editTags.includes(tag)
+                ? 'bg-accent-dim border-accent/40 text-accent'
+                : 'bg-card-2 border-line text-paper-dim hover:border-paper-dim'
+            }`}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+      {/* Add new tag */}
+      <div className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={newTagInput}
+          onChange={e => setNewTagInput(e.target.value)}
+          onKeyDown={async e => {
+            if (e.key === 'Enter' && newTagInput.trim()) {
+              const name = await createTag(newTagInput.trim())
+              toggleTag(name)
+              setNewTagInput('')
+            }
+          }}
+          placeholder="New tag…"
+          className="bg-card-2 border border-line rounded-full px-3 py-1 font-mono text-[11px] text-paper-dim placeholder:text-fog outline-none focus:border-accent/60 w-36"
+        />
+        <button
+          onClick={async () => {
+            if (!newTagInput.trim()) return
+            const name = await createTag(newTagInput.trim())
+            toggleTag(name)
+            setNewTagInput('')
+          }}
+          className="px-3 py-1 rounded-full font-mono text-[11px] border border-line text-paper-dim hover:border-accent/60 hover:text-accent transition"
+        >
+          + Add
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-wrap gap-1.5">
+      {tags.length > 0
+        ? tags.map(t => <Badge key={t} label={t} />)
+        : <span className="text-fog text-xs">No tags</span>}
+    </div>
+  )}
+</div>
 
         {/* Notes */}
         {(editMode || prospect.notes) && (

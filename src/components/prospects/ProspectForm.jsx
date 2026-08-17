@@ -2,12 +2,16 @@ import { useState } from 'react'
 import Input from '../ui/Input'
 import Dropdown from '../ui/Dropdown'
 import Button from '../ui/Button'
+import { useTags } from '../../hooks/useTags'
 import {
   EMAIL_PIPELINE_STAGES,
   LINKEDIN_CONNECTION_STATUSES,
-  LINKEDIN_DM_STATUSES,
-  PROSPECT_TAGS
+  LINKEDIN_DM_STATUSES
 } from '../../utils/constants'
+
+const { tags: availableTags, createTag } = useTags()
+const [newTagInput, setNewTagInput] = useState('')
+
 
 const emptyForm = {
   first_name: '',
@@ -253,24 +257,53 @@ export default function ProspectForm({ onSubmit, onCancel, generateSerial }) {
       </div>
 
       {/* Tags */}
-      <div>
-        <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
-        <div className="flex flex-wrap gap-2">
-          {PROSPECT_TAGS.map(tag => (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className={`px-3 py-1 rounded-full font-mono text-[11px] transition border ${
-                form.tags.includes(tag)
-                  ? 'bg-accent-dim border-accent/40 text-accent'
-                  : 'bg-card-2 border-line text-paper-dim hover:border-paper-dim'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      </div>
+<div>
+  <p className="font-mono text-accent text-[10px] uppercase tracking-wide mb-3">Tags</p>
+  <div className="space-y-3">
+    <div className="flex flex-wrap gap-2">
+      {availableTags.map(tag => (
+        <button
+          key={tag}
+          onClick={() => toggleTag(tag)}
+          className={`px-3 py-1 rounded-full font-mono text-[11px] transition border ${
+            form.tags.includes(tag)
+              ? 'bg-accent-dim border-accent/40 text-accent'
+              : 'bg-card-2 border-line text-paper-dim hover:border-paper-dim'
+          }`}
+        >
+          {tag}
+        </button>
+      ))}
+    </div>
+    <div className="flex gap-2 items-center">
+      <input
+        type="text"
+        value={newTagInput}
+        onChange={e => setNewTagInput(e.target.value)}
+        onKeyDown={async e => {
+          if (e.key === 'Enter' && newTagInput.trim()) {
+            const name = await createTag(newTagInput.trim())
+            toggleTag(name)
+            setNewTagInput('')
+          }
+        }}
+        placeholder="New tag…"
+        className="bg-card-2 border border-line rounded-full px-3 py-1 font-mono text-[11px] text-paper-dim placeholder:text-fog outline-none focus:border-accent/60 w-36"
+      />
+      <button
+        onClick={async () => {
+          if (!newTagInput.trim()) return
+          const name = await createTag(newTagInput.trim())
+          toggleTag(name)
+          setNewTagInput('')
+        }}
+        className="px-3 py-1 rounded-full font-mono text-[11px] border border-line text-paper-dim hover:border-accent/60 hover:text-accent transition"
+      >
+        + Add
+      </button>
+    </div>
+  </div>
+</div>
 
       {/* Notes */}
       <div>

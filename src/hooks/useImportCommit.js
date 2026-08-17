@@ -3,8 +3,7 @@ import { supabase } from '../lib/supabase'
 import {
   EMAIL_PIPELINE_STAGES,
   LINKEDIN_CONNECTION_STATUSES,
-  LINKEDIN_DM_STATUSES,
-  PROSPECT_TAGS,
+  LINKEDIN_DM_STATUSES
 } from '../utils/constants'
 
 const BATCH_SIZE = 50
@@ -139,7 +138,7 @@ export function useImportCommit() {
         const tagRows = group.flatMap(r => {
           const id = idBySerial.get(r.serial)
           if (!id || !r.tags?.length) return []
-          return r.tags.filter(tag => PROSPECT_TAGS.includes(tag)).map(tag => ({ prospect_id: id, tag }))
+          return (r.tags ?? []).map(tag => ({ prospect_id: id, tag }))
         })
         if (tagRows.length) {
           const { error } = await supabase.from('prospect_tags').insert(tagRows)

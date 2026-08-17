@@ -13,7 +13,7 @@ import Dropdown from '../components/ui/Dropdown'
 import StatCard from '../components/ui/StatCard'
 import { useProspects } from '../hooks/useProspects'
 import { useBulkActions } from '../hooks/useBulkActions'
-import { EMAIL_PIPELINE_STAGES, LINKEDIN_DM_STATUSES, PROSPECT_TAGS } from '../utils/constants'
+import { EMAIL_PIPELINE_STAGES, LINKEDIN_DM_STATUSES } from '../utils/constants'
 
 const icons = {
   people: (
