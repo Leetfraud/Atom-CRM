@@ -13,9 +13,8 @@ import Dropdown from '../components/ui/Dropdown'
 import StatCard from '../components/ui/StatCard'
 import { useProspects } from '../hooks/useProspects'
 import { useBulkActions } from '../hooks/useBulkActions'
+import { useTags } from '../hooks/useTags'
 import { EMAIL_PIPELINE_STAGES, LINKEDIN_DM_STATUSES } from '../utils/constants'
-
-const { tags: availableTags } = useTags()
 
 const icons = {
   people: (
@@ -46,6 +45,7 @@ export default function SalesDashboard() {
   const [menuPos, setMenuPos] = useState(null)
   const { prospects, loading, filterProspects, addProspect, refetch, generateSerial, updateProspect, updateProspectLocal, deleteProspect } = useProspects()
   const { applying, error: bulkError, setStage, setDmStatus, addTag, removeTag } = useBulkActions()
+  const { tags: availableTags } = useTags()
   const [pipelineMode, setPipelineMode] = useState('email') // 'email' | 'linkedin'
 
   const selectedProspect = prospects.find(p => p.id === selectedProspectId) ?? null
@@ -123,7 +123,7 @@ export default function SalesDashboard() {
       const n = counts.get(tag) ?? 0
       return [tag, n === 0 ? 'none' : n === selected.length ? 'all' : 'some']
     }))
-  }, [prospects, selectedIds])
+  }, [prospects, selectedIds, availableTags])
 
   async function handleBulkStatus(value) {
     const ids = [...selectedIds]
