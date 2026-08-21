@@ -47,6 +47,14 @@ export default function ImportReviewRow({ row, onChange, onToggleInclude }) {
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10.5px] shrink-0 ${src.cls}`}>
           {src.label}
         </span>
+        {row._existingId && (
+          <span
+            title="Already imported from Notion — this will update the existing prospect, not add a second one. Its notes in Atom are left alone."
+            className="inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10.5px] shrink-0 bg-card text-paper-dim border border-line"
+          >
+            ↻ Update
+          </span>
+        )}
         {row.needsName && (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[10.5px] shrink-0 bg-down-dim text-down border border-down/30">
             ⚠ Needs manual entry
@@ -110,6 +118,11 @@ export default function ImportReviewRow({ row, onChange, onToggleInclude }) {
 
           <div className="mt-4">
             <p className="font-mono text-fog text-[10px] uppercase tracking-wide mb-2">Notes</p>
+            {row._existingId && (
+              <p className="text-fog text-[11px] mb-2">
+                Not written on an update — this prospect keeps the notes it already has in Atom.
+              </p>
+            )}
             <textarea
               value={row.notes}
               onChange={e => set('notes', e.target.value)}

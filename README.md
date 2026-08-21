@@ -14,7 +14,7 @@ A lightweight internal CRM for tracking outbound sales prospects across email an
 - **Auth** - email/password login and self-service registration (`sales` or `exec` role), backed by Supabase Auth.
 - **Prospects** - add, edit, filter, and search prospects; track them through separate email and LinkedIn pipelines (stage, connection status, DM status, replies, etc.).
 - **Prospect detail card** - a right-side panel per prospect with links, pipeline controls, tags, and a per-channel activity log (notes + actions). A left-side panel mirrors the prospect's general notes and note history for quick reference while the card is open.
-- **Import** - bulk CSV import of prospects with a review step before committing.
+- **Import** - bulk import of prospects with a review step before committing, from either a live Notion database or an uploaded export. Safe to re-run: pages already imported are updated in place rather than duplicated. Connecting Notion is a one-time setup — see [NOTION_SETUP.md](NOTION_SETUP.md).
 - **Analytics / Daily Log** - exec-only views of pipeline stats and daily activity trends.
 - **Team chat** - a simple shared chat panel accessible from the topbar.
 
@@ -43,6 +43,8 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 The database schema (tables like `prospects`, `email_pipeline`, `linkedin_pipeline`, `prospect_tags`, `prospect_activity_log`, `daily_stats`, `profiles`) is managed directly in the Supabase project. Row-level security policies for these tables are defined in `supabase/policies.sql` — run that file in the Supabase SQL editor when setting up a new project or after policy changes.
 
 For registration to work end-to-end, also configure email delivery under Authentication → Settings (the Supabase default sender has a low rate limit, so custom SMTP is recommended for real usage).
+
+Migrations that *are* tracked here live in `supabase/migrations/` and are run the same way. The live Notion import needs both of them, plus edge function secrets and a Notion OAuth app — [NOTION_SETUP.md](NOTION_SETUP.md) walks through it.
 
 ## Project structure
 

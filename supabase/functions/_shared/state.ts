@@ -25,5 +25,11 @@ export async function verifyState(token: string, secret: string) {
   if (!ok) throw new Error("state signature invalid");
   const payload = JSON.parse(dec.decode(fromB64url(body)));
   if (payload.exp && Date.now() > payload.exp) throw new Error("state expired");
-  return payload as { uid: string; provider: string; nonce: string; exp: number };
+  return payload as {
+    uid: string;
+    provider: string;
+    nonce: string;
+    exp: number;
+    returnTo?: string;
+  };
 }

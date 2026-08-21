@@ -8,6 +8,11 @@ const SOURCE_FILTERS = [
   { value: 'matched', label: 'Matched' },
   { value: 'linkedin', label: 'LinkedIn only' },
   { value: 'email', label: 'Email only' },
+  // Not a source, but the same dropdown: on a re-sync the useful question is
+  // "which of these are new?", and scrolling a few hundred rows to find out is
+  // not a review.
+  { value: 'new', label: 'New only' },
+  { value: 'update', label: 'Updates only' },
 ]
 
 
@@ -33,7 +38,13 @@ export default function ImportReview({
   const visible = useMemo(() => {
     const q = search.toLowerCase().trim()
     return rows.filter(r => {
-      if (sourceFilter !== 'all' && r.source !== sourceFilter) return false
+      // 'new' / 'update' select on whether the row already exists as a
+      // prospect; everything else selects on where the row came from.
+      if (sourceFilter === 'new' || sourceFilter === 'update') {
+        if ((sourceFilter === 'update') !== !!r._existingId) return false
+      } else if (sourceFilter !== 'all' && r.source !== sourceFilter) {
+        return false
+      }
       if (!q) return true
       return (
         `${r.first_name} ${r.last_name}`.toLowerCase().includes(q) ||
@@ -60,18 +71,29 @@ export default function ImportReview({
     <div className="flex flex-col gap-4">
       {/* Summary + actions */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-paper-dim text-sm">
-          <span className="text-mint font-medium">{summary.matched}</span> matched,{' '}
-          <span className="text-accent font-medium">{summary.linkedin}</span> LinkedIn-only,{' '}
-          <span className="text-[#ff8a3d] font-medium">{summary.email}</span> Email-only —{' '}
-          <span className="text-paper font-medium">{summary.total}</span> total to import
-        </p>
+        <div className="text-paper-dim text-sm">
+          <p>
+            <span className="text-mint font-medium">{summary.matched}</span> matched,{' '}
+            <span className="text-accent font-medium">{summary.linkedin}</span> LinkedIn-only,{' '}
+            <span className="text-[#ff8a3d] font-medium">{summary.email}</span> Email-only —{' '}
+            <span className="text-paper font-medium">{summary.total}</span> total to import
+          </p>
+          {summary.updates > 0 && (
+            <p className="text-fog text-xs mt-1">
+              <span className="text-paper-dim font-medium">{summary.creates}</span> new,{' '}
+              <span className="text-paper-dim font-medium">{summary.updates}</span> already imported
+              and will be updated in place
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={onBack} disabled={committing}>Back</Button>
           <Button onClick={onCommit} disabled={committing || summary.total === 0}>
             {committing
               ? `Importing ${progress.done} / ${progress.total}…`
-              : `Import ${summary.total}`}
+              : summary.updates > 0
+                ? `Import ${summary.creates} + update ${summary.updates}`
+                : `Import ${summary.total}`}
           </Button>
         </div>
       </div>

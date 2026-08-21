@@ -2,39 +2,85 @@ import { useState } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import Topbar from '../components/layout/Topbar'
 import ImportUploader from '../components/import/ImportUploader'
+import NotionSource from '../components/import/NotionSource'
 import ImportReview from '../components/import/ImportReview'
 import { useImportCommit } from '../hooks/useImportCommit'
 import {
   parseLinkedinCsv,
   parseEmailExport,
+  parseNotionPages,
   buildReviewRows,
+  markExistingRows,
   repairRows,
 } from '../utils/importParsers'
 
+// Two ways in, one review screen. The Notion source reads the email pipeline
+// live over the API; the file source is the original zip/folder upload, kept
+// because it still works without a connection and against an archived export.
+const SOURCES = [
+  { value: 'notion', label: 'Notion (live)' },
+  { value: 'files', label: 'File upload' },
+]
+
 export default function Import() {
   const [step, setStep] = useState('upload') // upload | review | done
+  const [source, setSource] = useState('notion')
   const [rows, setRows] = useState([])
   const [parseError, setParseError] = useState(null)
+  const [warnings, setWarnings] = useState([])
   const [result, setResult] = useState(null)
+  // Lives here rather than in NotionSource so switching tabs does not lose it.
+  const [linkedinCsv, setLinkedinCsv] = useState(null)
   const { commit, committing, progress, error: commitError } = useImportCommit()
 
-  function handleReady({ linkedinCsvText, emailCsvText, emailMdFiles }) {
+  // Both sources converge here: whatever produced them, email + LinkedIn
+  // contacts get matched and turned into review rows the same way.
+  //
+  // existingByPageId (Notion only) flags the rows that already exist as
+  // prospects, so the review screen can distinguish an update from a new
+  // person before anything is written.
+  function acceptContacts(linkedinContacts, emailContacts, sourceWarnings = [], existingByPageId) {
+    const built = buildReviewRows(linkedinContacts, emailContacts)
+    if (built.length === 0) {
+      setParseError('No contacts were found in that source. Check the format or the database.')
+      return
+    }
+    setRows(markExistingRows(built, existingByPageId))
+    setWarnings(sourceWarnings)
+    setStep('review')
+  }
+
+  function handleFilesReady({ linkedinCsvText, emailCsvText, emailMdFiles }) {
     setParseError(null)
     try {
-      const linkedinContacts = linkedinCsvText ? parseLinkedinCsv(linkedinCsvText) : []
-      const emailContacts = emailMdFiles?.length
-        ? parseEmailExport(emailCsvText, emailMdFiles)
-        : []
-      const built = buildReviewRows(linkedinContacts, emailContacts)
-      if (built.length === 0) {
-        setParseError('No contacts were found in the provided files. Check the export format.')
-        return
-      }
-      setRows(built)
-      setStep('review')
+      acceptContacts(
+        linkedinCsvText ? parseLinkedinCsv(linkedinCsvText) : [],
+        emailMdFiles?.length ? parseEmailExport(emailCsvText, emailMdFiles) : [],
+      )
     } catch (err) {
       setParseError(`Failed to parse files: ${err.message}`)
     }
+  }
+
+  function handleNotionReady({ notionPages, syncState, warnings: sourceWarnings }) {
+    setParseError(null)
+    try {
+      acceptContacts(
+        linkedinCsv?.text ? parseLinkedinCsv(linkedinCsv.text) : [],
+        parseNotionPages(notionPages),
+        sourceWarnings,
+        syncState,
+      )
+    } catch (err) {
+      setParseError(`Failed to read the Notion database: ${err.message}`)
+    }
+  }
+
+  async function handlePickLinkedinCsv(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setLinkedinCsv({ name: file.name, text: await file.text() })
   }
 
   function updateRow(id, updates) {
@@ -56,7 +102,7 @@ export default function Import() {
   async function handleCommit() {
     const res = await commit(rows)
     if (!res.error) {
-      setResult({ count: res.count })
+      setResult({ count: res.count, inserted: res.inserted, updated: res.updated })
       setStep('done')
     }
   }
@@ -65,6 +111,7 @@ export default function Import() {
     setRows([])
     setResult(null)
     setParseError(null)
+    setWarnings([])
     setStep('upload')
   }
 
@@ -82,13 +129,42 @@ export default function Import() {
               <div>
                 <h2 className="font-display font-bold text-paper text-lg">Import prospects</h2>
                 <p className="text-paper-dim text-sm mt-1">
-                  Upload the LinkedIn connections CSV and/or the Notion email pipeline export. Nothing is written until you confirm on the review screen.
+                  Pull the email pipeline live from Notion, or upload an export. Nothing is written
+                  until you confirm on the review screen.
                 </p>
               </div>
+
+              <div className="inline-flex self-start gap-1 p-1 rounded-full bg-card-2 border border-line">
+                {SOURCES.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSource(opt.value)}
+                    className={`px-4 py-1.5 rounded-full font-mono text-[11px] uppercase tracking-wide transition ${
+                      source === opt.value
+                        ? 'bg-paper text-ink'
+                        : 'text-fog hover:text-paper'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
               {parseError && (
                 <p className="text-down text-sm bg-down-dim border border-down/30 rounded-xl px-4 py-2.5">{parseError}</p>
               )}
-              <ImportUploader onReady={handleReady} />
+
+              {source === 'notion' ? (
+                <NotionSource
+                  onReady={handleNotionReady}
+                  linkedinCsv={linkedinCsv}
+                  onPickLinkedinCsv={handlePickLinkedinCsv}
+                  onClearLinkedinCsv={() => setLinkedinCsv(null)}
+                />
+              ) : (
+                <ImportUploader onReady={handleFilesReady} />
+              )}
             </div>
           )}
 
@@ -99,6 +175,11 @@ export default function Import() {
                   Import failed: {commitError}
                 </p>
               )}
+              {warnings.map((w, i) => (
+                <p key={i} className="text-paper-dim text-sm bg-card-2 border border-line rounded-xl px-4 py-2.5">
+                  {w}
+                </p>
+              ))}
               <ImportReview
                 rows={rows}
                 onChange={updateRow}
@@ -119,14 +200,16 @@ export default function Import() {
               <div>
                 <h2 className="font-display font-bold text-paper text-lg">Import complete</h2>
                 <p className="text-paper-dim text-sm mt-1">
-                  {result?.count} prospect{result?.count === 1 ? '' : 's'} imported successfully.
+                  {result?.updated
+                    ? `${result.inserted} new prospect${result.inserted === 1 ? '' : 's'} added, ${result.updated} updated.`
+                    : `${result?.count} prospect${result?.count === 1 ? '' : 's'} imported successfully.`}
                 </p>
               </div>
               <button
                 onClick={reset}
                 className="font-mono text-accent hover:text-paper text-[11px] uppercase tracking-wide"
               >
-                Import another file
+                Import another
               </button>
             </div>
           )}

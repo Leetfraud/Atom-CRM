@@ -57,15 +57,17 @@ export function buildNotes(body, secondaryNames, secondaryContactText) {
   let answersLines = []
 
   for (const raw of lines) {
+    // Skip separator lines (____ or ---- runs) BEFORE the list marker is
+    // stripped — otherwise "---" loses its first dash, arrives here as "--",
+    // and slips past the {3,} guard into the notes.
+    if (/^\s*[_\-—–]{3,}\s*$/.test(raw)) continue
+
     // Strip list markers and bold, trim
     const line = raw.replace(/^[\s]*[-*]\s*/, '').replace(/\*\*/g, '').replace(/^\*+|\*+$/g, '').trim()
     if (!line) continue
 
     // Skip the title line (starts with #)
     if (/^#+\s/.test(line)) continue
-
-    // Skip separator lines (____ or ---- runs)
-    if (/^[_\-—–]{3,}$/.test(line)) continue
 
     // Skip secondary-contact lines — those go into secondaryContactText instead
     if (isSecondaryContactLine(line)) continue

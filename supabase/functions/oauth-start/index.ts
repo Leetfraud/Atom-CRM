@@ -6,9 +6,16 @@ import { corsHeaders } from "../_shared/cors.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const provider = new URL(req.url).searchParams.get("provider") ?? "notion";
+    const url = new URL(req.url);
+    const provider = url.searchParams.get("provider") ?? "notion";
     const cfg = PROVIDERS[provider];
     if (!cfg) throw new Error(`unknown provider ${provider}`);
+
+    // Where to drop the user after the callback. Only a same-site path is ever
+    // accepted — "//evil.com" and "https://evil.com" are both rejected — so a
+    // crafted authorize link cannot turn the callback into an open redirect.
+    const rawReturnTo = url.searchParams.get("return_to") ?? "";
+    const returnTo = /^\/(?!\/)[\w\-./?=&%#]*$/.test(rawReturnTo) ? rawReturnTo : "";
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -18,7 +25,13 @@ Deno.serve(async (req) => {
     if (error || !user) throw new Error("not authenticated");
 
     const state = await signState(
-      { uid: user.id, provider, nonce: crypto.randomUUID(), exp: Date.now() + 10 * 60 * 1000 },
+      {
+        uid: user.id,
+        provider,
+        returnTo,
+        nonce: crypto.randomUUID(),
+        exp: Date.now() + 10 * 60 * 1000,
+      },
       Deno.env.get("OAUTH_STATE_SECRET")!,
     );
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/oauth-callback`;

@@ -6,6 +6,10 @@
 // the original single file changed nothing for consumers.
 //
 // Validated end-to-end against the real 954-file Notion email-pipeline export.
+//
+// Email contacts arrive by one of two routes — a downloaded zip, or a live pull
+// from the Notion API — and both converge on buildEmailContact(). Everything
+// downstream of that (matching, review rows, commit) is route-agnostic.
 // ---------------------------------------------------------------------------
 
 import {
@@ -29,6 +33,7 @@ import {
   titleFromBody,
 } from './title.js'
 import { buildNotes, extractSecondaryContactText } from './notes.js'
+import { pageProperties, pageTitle } from '../notion/properties.js'
 
 import {
   EMAIL_PIPELINE_STAGES,
@@ -72,36 +77,122 @@ export function parseLinkedinCsv(text) {
     .filter(Boolean)
 }
 
+const EMPTY_META = { name: '', stage: '', tags: [], linkedinRequest: false }
+
+// Read the pipeline fields out of one flat { column: value } record.
+//
+// Both import routes end up here: the zip path passes a parsed CSV row, the
+// live path passes a Notion page's properties flattened to strings. Sharing it
+// means a database whose column is called "Label" rather than "Tags" behaves
+// the same whichever way the data arrived.
+function metaFromRecord(record) {
+  const tagsRaw = pick(record, ['Label', 'Labels', 'Tags'])
+  const linkedinRequest = pick(record, ['LinkedIn Request', 'Linkedin Request'])
+  return {
+    name: pick(record, ['Name', 'Title', 'Page']),
+    stage: snapEnum(pick(record, ['Status', 'Stage']), EMAIL_PIPELINE_STAGES),
+    tags: tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [],
+    linkedinRequest: linkedinRequest.toLowerCase() === 'yes',
+  }
+}
+
 // Everything Notion stores as a page property lives in the CSV.
 function buildEmailCsvIndex(csvText) {
   const index = new Map()
   if (!csvText) return index
-  const rows = parseCsv(csvText)
-  for (const row of rows) {
-    const name = pick(row, ['Name', 'Title', 'Page'])
-    if (!name) continue
-    const tagsRaw = pick(row, ['Label', 'Labels', 'Tags'])
-    const tags = tagsRaw
-      ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean)
-      : []
-    const linkedinRequest = pick(row, ['LinkedIn Request', 'Linkedin Request']) 
-    index.set(normalizeName(name), {
-      name,
-      stage: snapEnum(pick(row, ['Status', 'Stage']), EMAIL_PIPELINE_STAGES),
-      tags,
-      linkedinRequest: linkedinRequest.toLowerCase() === 'yes',
-    })
+  for (const row of parseCsv(csvText)) {
+    const meta = metaFromRecord(row)
+    if (!meta.name) continue
+    index.set(normalizeName(meta.name), meta)
   }
   return index
 }
 
+// Turn one page — a title, its body as markdown, and its pipeline properties —
+// into a single email contact.
+//
+// This is the whole of the email-side parsing, and it is deliberately unaware
+// of where the page came from. The zip path reconstructs the arguments from a
+// .md file plus a CSV row; the live path gets them from the Notion API and
+// renders blocks back to the same markdown dialect. Neither gets its own
+// interpretation of a title, a checklist, or a Gamma link.
+function buildEmailContact(title, body, meta) {
+  const parsed = parseTitle(title)
 
-// mdFiles: [{ name, content }]. Returns exactly one prospect per file.
+  let firstName = '', lastName = '', company = '', needsName = false
+  let secondaryNoteLines = []
+
+  if (parsed.isPlaceholder) {
+    // No name — extract email or linkedin from the placeholder value
+    needsName = true
+    // company stays blank
+  } else {
+    const nameParts = splitName(parsed.primaryName)
+    firstName = nameParts.first_name
+    lastName = nameParts.last_name
+    company = parsed.company
+
+    // Secondary names from multi-name title go into notes
+    if (parsed.secondaryNames.length > 0) {
+      secondaryNoteLines.push(
+        ...parsed.secondaryNames.map(n => `Additional person in title: ${n}`)
+      )
+    }
+  }
+
+  // Extract primary contact's fields from the body
+  const primaryFields = extractContactFields(body)
+  const gammaUrls = extractGammaUrls(body)
+  const gammaDocUrl = gammaUrls[0] ?? ''
+
+  // For placeholder titles, try to get email/linkedin from the placeholder value itself
+  if (parsed.isPlaceholder) {
+    if (parsed.placeholderType === 'email') {
+      primaryFields.email = primaryFields.email || extractEmail(parsed.placeholderValue)
+    } else if (parsed.placeholderType === 'linkedin') {
+      primaryFields.linkedin_url = primaryFields.linkedin_url || extractMarkdownUrl(parsed.placeholderValue)
+    }
+  }
+
+  // Company fallback from Gamma slug
+  if (!company && gammaDocUrl) {
+    company = companyFromGammaSlug(gammaDocUrl, firstName, lastName)
+  }
+
+  // Build secondary contact text from body (any lines with role-like labels pointing to other people)
+  // We do NOT try to parse these into structured rows — just preserve the raw text
+  const secondaryContactText = extractSecondaryContactText(body, secondaryNoteLines)
+
+  const notes = buildNotes(body, parsed.secondaryNames, secondaryContactText)
+
+  return {
+    _key: nextId(),
+    source: 'email',
+    name: parsed.isPlaceholder ? '' : (parsed.primaryName || title),
+    first_name: firstName,
+    last_name: lastName,
+    role_title: '',
+    company,
+    email: primaryFields.email ?? '',
+    linkedin_url: primaryFields.linkedin_url ?? '',
+    youtube_url: primaryFields.youtube_url ?? '',
+    gamma_doc_url: gammaDocUrl,
+    email_stage: meta.stage,
+    tags: [...meta.tags],
+    notes: [
+      gammaUrls.length > 1 ? `Additional Gamma docs: ${gammaUrls.slice(1).join(', ')}` : '',
+      notes,
+    ].filter(Boolean).join('\n'),
+    needsName,
+    _linkedinRequest: meta.linkedinRequest,
+  }
+}
+
+// Zip / folder path. mdFiles: [{ name, content }]. One prospect per file.
 export function parseEmailExport(csvText, mdFiles) {
   const csvIndex = buildEmailCsvIndex(csvText)
-  const contacts = []
 
-  for (const file of mdFiles ?? []) {
+  return (mdFiles ?? []).map(file => {
     const body = file.content ?? ''
     const filenameTitle = titleFromFilename(file.name)
     // Prefer the in-file "# heading" (keeps colons the filename strips), but
@@ -110,80 +201,34 @@ export function parseEmailExport(csvText, mdFiles) {
     const fileTitle = titleFromBody(body, filenameTitle)
     const meta = csvIndex.get(normalizeName(filenameTitle))
       ?? csvIndex.get(normalizeName(fileTitle))
-      ?? { stage: '', tags: [], linkedinRequest: false }
+      ?? EMPTY_META
 
-    const parsed = parseTitle(fileTitle)
+    return buildEmailContact(fileTitle, body, meta)
+  })
+}
 
-    let firstName = '', lastName = '', company = '', needsName = false
-    let secondaryNoteLines = []
+// Live path. pages: [{ id, url, properties, markdown }] straight off the Notion
+// API, where `properties` is the raw property map and `markdown` is the body
+// rendered by blocksToMarkdown.
+//
+// Two things are strictly better here than in the zip path: the title comes
+// from the title property rather than a filename that has had its punctuation
+// stripped and a hash appended, and the properties never had to survive a round
+// trip through CSV. A page whose body failed to load still yields a contact
+// built from its properties alone.
+export function parseNotionPages(pages) {
+  return (pages ?? []).map(page => {
+    const record = pageProperties(page)
+    const meta = metaFromRecord(record)
+    const title = pageTitle(page) || meta.name
+    const contact = buildEmailContact(title, page.markdown ?? '', meta)
 
-    if (parsed.isPlaceholder) {
-      // No name — extract email or linkedin from the placeholder value
-      needsName = true
-      // company stays blank
-    } else {
-      const nameParts = splitName(parsed.primaryName)
-      firstName = nameParts.first_name
-      lastName = nameParts.last_name
-      company = parsed.company
-
-      // Secondary names from multi-name title go into notes
-      if (parsed.secondaryNames.length > 0) {
-        secondaryNoteLines.push(
-          ...parsed.secondaryNames.map(n => `Additional person in title: ${n}`)
-        )
-      }
-    }
-
-    // Extract primary contact's fields from the body
-    const primaryFields = extractContactFields(body)
-    const gammaUrls = extractGammaUrls(body)
-    const gammaDocUrl = gammaUrls[0] ?? ''
-
-    // For placeholder titles, try to get email/linkedin from the placeholder value itself
-    if (parsed.isPlaceholder) {
-      if (parsed.placeholderType === 'email') {
-        primaryFields.email = primaryFields.email || extractEmail(parsed.placeholderValue)
-      } else if (parsed.placeholderType === 'linkedin') {
-        primaryFields.linkedin_url = primaryFields.linkedin_url || extractMarkdownUrl(parsed.placeholderValue)
-      }
-    }
-
-    // Company fallback from Gamma slug
-    if (!company && gammaDocUrl) {
-      company = companyFromGammaSlug(gammaDocUrl, firstName, lastName)
-    }
-
-    // Build secondary contact text from body (any lines with role-like labels pointing to other people)
-    // We do NOT try to parse these into structured rows — just preserve the raw text
-    const secondaryContactText = extractSecondaryContactText(body, secondaryNoteLines)
-
-    const notes = buildNotes(body, parsed.secondaryNames, secondaryContactText)
-
-    contacts.push({
-      _key: nextId(),
-      source: 'email',
-      name: parsed.isPlaceholder ? '' : (parsed.primaryName || fileTitle),
-      first_name: firstName,
-      last_name: lastName,
-      role_title: '',
-      company,
-      email: primaryFields.email ?? '',
-      linkedin_url: primaryFields.linkedin_url ?? '',
-      youtube_url: primaryFields.youtube_url ?? '',
-      gamma_doc_url: gammaDocUrl,
-      email_stage: meta.stage,
-      tags: [...meta.tags],
-      notes: [
-        gammaUrls.length > 1 ? `Additional Gamma docs: ${gammaUrls.slice(1).join(', ')}` : '',
-        notes,
-      ].filter(Boolean).join('\n'),
-      needsName,
-      _linkedinRequest: meta.linkedinRequest,
-    })
-  }
-
-  return contacts
+    // Carried through to the review row and stored on the prospect, so a later
+    // re-run of this import updates the same person instead of adding a twin.
+    contact._notionPageId = page.id ?? ''
+    contact._notionLastEditedAt = page.last_edited_time ?? null
+    return contact
+  })
 }
 
 // --- Matching + review row construction ---
@@ -210,6 +255,11 @@ function blankRow() {
     dm_status: 'Not Sent',
     tags: [],
     needsName: false,
+    notion_page_id: null,
+    notion_last_edited_at: null,
+    // Set once the commit step has resolved this page against the database;
+    // drives the "Update" badge on the review screen.
+    _existingId: null,
     _liKey: null,
     _emailKey: null,
   }
@@ -246,6 +296,11 @@ function mergeRow(li, em) {
   row.tags = em?.tags ? [...em.tags] : []
   row.notes = mergeNotes(li?.notes, em?.notes)
   row.needsName = em?.needsName ?? false
+
+  // Only the email side can carry a Notion identity; a LinkedIn CSV row has no
+  // page behind it.
+  row.notion_page_id = em?._notionPageId || null
+  row.notion_last_edited_at = em?._notionLastEditedAt || null
   return row
 }
 
@@ -286,7 +341,32 @@ export function summarize(rows) {
   const matched = active.filter(r => r.source === 'matched').length
   const linkedin = active.filter(r => r.source === 'linkedin').length
   const email = active.filter(r => r.source === 'email').length
-  return { matched, linkedin, email, total: active.length }
+  // _existingId is stamped when the rows are built from a Notion pull, so the
+  // review screen can say how many of these are updates rather than new people.
+  const updates = active.filter(r => r._existingId).length
+  return {
+    matched,
+    linkedin,
+    email,
+    updates,
+    creates: active.length - updates,
+    total: active.length,
+  }
+}
+
+// Mark the rows whose Notion page already exists as a prospect.
+// syncState: the Map returned by fetchNotionSyncState — page id -> { prospectId }.
+//
+// This only drives the review UI. The commit re-resolves identity against the
+// database at write time, so a stale badge here cannot cause a duplicate.
+export function markExistingRows(rows, syncState) {
+  if (!syncState?.size) return rows
+  return rows.map(row => {
+    const existingId = row.notion_page_id
+      ? syncState.get(row.notion_page_id)?.prospectId ?? null
+      : null
+    return existingId === row._existingId ? row : { ...row, _existingId: existingId }
+  })
 }
 
 export function repairRows(rows, liRowId, emailRowId) {
@@ -334,5 +414,9 @@ function emailRowToContact(row) {
     email_stage: row.email_stage,
     tags: row.tags,
     needsName: row.needsName,
+    // Without these the re-pair would drop the page identity and the row would
+    // come back as a fresh insert on commit.
+    _notionPageId: row.notion_page_id,
+    _notionLastEditedAt: row.notion_last_edited_at,
   }
 }
